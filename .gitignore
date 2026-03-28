@@ -1,0 +1,30 @@
+# Gradle rác
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ rác (Chỉ giữ lại cấu hình cần thiết, bỏ qua các file cá nhân)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse & NetBeans
+.classpath
+.project
+.settings/
+.factorypath
+bin/
+nbproject/private/
+/dist/
+/nbdist/
+.nb-gradle/
+
+# Hệ điều hành
+.DS_Store
+Thumbs.db
+
+# File log và tạm
+*.log
+*.tmp
