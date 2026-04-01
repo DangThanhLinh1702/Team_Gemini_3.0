@@ -17,7 +17,7 @@ public class ServerMain {
             server.createContext("/users", authHandler);
 
             server.start();
-            System.out.println("SERVER ĐÃ KHỞI ĐỘNG");
+            System.out.println("SERVER Starting");
 
         } catch (IOException e) {
             System.out.println("Lỗi khi khởi động Server: " + e.getMessage());

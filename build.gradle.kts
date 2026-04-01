@@ -1,25 +1,38 @@
 plugins {
     id("java")
-    application
+    id("application")
+    id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
-group = "org.example"
-version = "1.0-SNAPSHOT"
+group = "auction"
+version = "1.0"
 
 repositories {
     mavenCentral()
 }
 
-dependencies {
-    implementation("com.google.code.gson:gson:2.10.1")
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
+// ✅ Khai báo JavaFX
+javafx {
+    version = "21"
+    modules = listOf("javafx.controls", "javafx.fxml")
 }
 
+// ✅ Chỉ định file main
 application {
-        mainClass.set("auction.server.core.ServerMain")
+    mainClass.set("auction.client.ClientMain")
 }
 
-tasks.test {
-    useJUnitPlatform()
+dependencies {
+    // Thêm thư viện khác nếu cần
+    implementation("com.google.code.gson:gson:2.10.1")
+}
+sourceSets {
+    main {
+        resources {
+            srcDirs("src/main/resources")
+        }
+    }
+}
+tasks.withType<ProcessResources> {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
