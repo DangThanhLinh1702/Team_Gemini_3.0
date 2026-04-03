@@ -1,21 +1,28 @@
 package auction.server.model;
 
 public abstract class User extends Entity {
-    private String username;
-    private String password;
+    protected String username;
+    protected String password;
+    protected String role;
+    protected int id;
+    private static int nextId = 1;
 
-    // Constructor (Hàm khởi tạo)
-    public User(String username, String password) {
+    public User(String username, String password, String role) {
+        this.id = nextId++;
         this.username = username;
         this.password = password;
+        this.role = role;
     }
-
-    // Các hàm Get/Set cơ bản
+    public int getId() {
+        return id;
+    }
     public String getUsername() {
         return username;
     }
-
     public String getPassword() {
         return password;
+    }
+    public String getRole() {
+        return role;
     }
 }
