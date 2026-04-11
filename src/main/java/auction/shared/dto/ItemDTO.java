@@ -1,9 +1,13 @@
 package auction.shared.dto;
 
+import com.google.gson.annotations.SerializedName;
+
 public class ItemDTO {
     private String name;
     private String description;
+    @SerializedName("starting_price")
     private double startingPrice;
+    @SerializedName("seller_user_name")
     private String sellerUsername;
 
     public ItemDTO(String name, String description, double startingPrice, String sellerUsername) {

@@ -60,4 +60,18 @@ public class UserService {
     public List<User> getAllUsers() {
         return userRepository.getAllUsers();
     }
+    public User loginAndGetUser(String username, String password){
+        if (username == null || password == null){
+            return null;
+        }
+        boolean isValid = userRepository.checkLogin(username, password);
+        if(isValid){
+            return userRepository.getAllUsers().stream()
+                    .filter(u -> u.getUsername().equals(username))
+                    .findFirst()
+                    .orElse(null);
+        }
+        return null;
+
+    }
 }

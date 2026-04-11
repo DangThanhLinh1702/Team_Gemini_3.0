@@ -12,20 +12,19 @@ repositories {
     mavenCentral()
 }
 
-// ✅ Khai báo JavaFX
 javafx {
     version = "21"
     modules = listOf("javafx.controls", "javafx.fxml")
 }
 
-// ✅ Chỉ định file main
 application {
-    mainClass.set("auction.client.ClientMain")
+    mainClass.set("auction.client.AppLauncher")
 }
 
 dependencies {
-    // Thêm thư viện khác nếu cần
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.auth0:java-jwt:4.5.1")
+    implementation("org.java-websocket:Java-WebSocket:1.5.3")
 }
 sourceSets {
     main {
@@ -36,4 +35,7 @@ sourceSets {
 }
 tasks.withType<ProcessResources> {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+java {
+    modularity.inferModulePath.set(true) // Ép Gradle tự động đưa thư viện vào Module Path
 }

@@ -36,24 +36,25 @@ public class ClientMain extends Application {
     /**
      * Hàm này chứa code cũ của bạn, dùng để chuyển sang màn hình chính (FXML)
      */
+    // Trong ClientMain.java
     public void showAuctionScreen() {
         try {
-            // Tải file FXML lên
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/auction/client/ui/AuctionUI.fxml")
-            );
-
+            // Tải file FXML giao diện chính
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/auction/client/ui/AuctionUI.fxml"));
             Parent root = loader.load();
 
-            // Cập nhật lại cửa sổ sang màn hình Auction
-            window.setTitle("Auction App - Dashboard");
-            window.setScene(new Scene(root, 900, 600));
-            window.setMinWidth(700);
-            window.setMinHeight(500);
+            // Lấy controller của AuctionUI để có thể truyền dữ liệu (nếu cần)
+            // AuctionUI controller = loader.getController();
 
+            Scene auctionScene = new Scene(root, 900, 600);
+
+            // Chuyển cảnh trên cửa sổ hiện tại (window)
+            window.setScene(auctionScene);
+            window.setTitle("Hệ thống Đấu giá trực tuyến");
+            window.centerOnScreen();
         } catch (Exception e) {
-            System.err.println("Lỗi khi tải màn hình Auction FXML!");
             e.printStackTrace();
+            System.err.println("Không thể tải màn hình Auction: " + e.getMessage());
         }
     }
 
