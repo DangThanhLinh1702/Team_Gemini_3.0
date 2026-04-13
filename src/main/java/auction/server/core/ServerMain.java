@@ -10,7 +10,7 @@ import java.net.InetSocketAddress;
 public class ServerMain {
     public static void main(String[] args) {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(8088), 0);
+            HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
             AuthHandler authHandler = new AuthHandler();
             ItemHandler itemHandler = new ItemHandler();
 

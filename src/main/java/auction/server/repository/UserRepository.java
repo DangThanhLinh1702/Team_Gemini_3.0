@@ -31,7 +31,9 @@ public class UserRepository {
 
         public boolean checkLogin(String username, String password) {
             for (User user : allUsers) {
-                if (user.getUsername().equals(username) && user.getPassword().equals(password)) return true;
+                if (user.getUsername().equals(username) && user.getPassword().equals(password)){
+                    return true;
+                }
             }
             return false;
         }

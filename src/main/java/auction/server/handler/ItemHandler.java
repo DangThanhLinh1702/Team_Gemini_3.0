@@ -5,6 +5,8 @@ import auction.server.util.HttpServerUtil;
 import auction.shared.dto.ItemDTO;
 import auction.shared.dto.ResponseDTO;
 import auction.shared.util.HttpResponseUtil;
+import auction.shared.util.JwtUtil;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -18,8 +20,6 @@ public class ItemHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         //lay ve request method tu client gui len
         try {
-
-
             String method = exchange.getRequestMethod().toUpperCase();
             if ("GET".equals(method)) {
                 var listItem = itemService.getAllItem();
@@ -47,5 +47,18 @@ public class ItemHandler implements HttpHandler {
         }catch (Exception e) {
             HttpResponseUtil.sendHttpResponse(exchange, 500, new ResponseDTO("error", "Lỗi nội bộ Server: " + e.getMessage()));
         }
+    }
+    public String handleAddItem(String jsonRequest, String token) {
+        DecodedJWT jwt = JwtUtil.verifyToken(token);
+        if (jwt == null) {
+            return "{\"status\":\"error\", \"msg\":\"Chưa đăng nhập!\"}";
+        }
+        // Lấy chức vụ từ Token ra kiểm tra
+        String role = jwt.getClaim("role").asString();
+        if (!"SELLER".equals(role)) {
+            return "{\"status\":\"error\", \"msg\":\"Bạn là Bidder, không có quyền thêm sản phẩm!\"}";
+        }
+        // Nếu là SELLER thì cho phép lưu sản phẩm vào DB
+        return "{\"status\":\"success\", \"msg\":\"Thêm sản phẩm thành công!\"}";
     }
 }
