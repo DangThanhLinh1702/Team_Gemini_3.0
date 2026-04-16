@@ -14,18 +14,18 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import java.util.function.Consumer;
 
-public class LoginView extends StackPane {
+public class SignUpView extends StackPane {
 
-    // Biến lưu trữ hành động chuyển trang khi đăng nhập thành công (với username)
-    private final Consumer<String> onLoginSuccess;
-    // Callback để chuyển sang màn hình Sign Up
-    private final Runnable onSignUp;
+    // Callback khi đăng ký thành công (với username)
+    private final Consumer<String> onSignUpSuccess;
+    // Callback để quay lại màn hình login
+    private final Runnable onBackToLogin;
 
-    public LoginView(Consumer<String> onLoginSuccess, Runnable onSignUp) {
-        this.onLoginSuccess = onLoginSuccess;
-        this.onSignUp = onSignUp;
+    public SignUpView(Consumer<String> onSignUpSuccess, Runnable onBackToLogin) {
+        this.onSignUpSuccess = onSignUpSuccess;
+        this.onBackToLogin = onBackToLogin;
 
-        // 1. TẠO BACKGROUND GRADIENT CHO MÀN HÌNH CHÍNH
+        // 1. TẠO BACKGROUND GRADIENT
         Stop[] bgStops = new Stop[]{
                 new Stop(0, Color.web("#4facfe")),
                 new Stop(1, Color.web("#00f2fe"))
@@ -33,11 +33,11 @@ public class LoginView extends StackPane {
         LinearGradient bgGradient = new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE, bgStops);
         this.setBackground(new Background(new BackgroundFill(bgGradient, CornerRadii.EMPTY, Insets.EMPTY)));
 
-        // 2. TẠO KHUNG ĐĂNG NHẬP (CARD)
-        VBox card = new VBox(20);
-        card.setMaxSize(400, 450);
+        // 2. TẠO KHUNG ĐĂNG KÝ (CARD)
+        VBox card = new VBox(15);
+        card.setMaxSize(400, 550);
         card.setPadding(new Insets(40));
-        card.setAlignment(Pos.CENTER);
+        card.setAlignment(Pos.TOP_CENTER);
 
         // Bo góc nền trắng cho Card
         card.setBackground(new Background(new BackgroundFill(Color.WHITE, new CornerRadii(15), Insets.EMPTY)));
@@ -51,64 +51,80 @@ public class LoginView extends StackPane {
 
         // 3. CÁC THÀNH PHẦN BÊN TRONG CARD
         // Tiêu đề
-        Label title = new Label("Welcome Back");
+        Label title = new Label("Create Account");
         title.setFont(Font.font("System", FontWeight.BOLD, 28));
         title.setTextFill(Color.web("#333333"));
 
-        Label subtitle = new Label("Please login to your auction account");
+        Label subtitle = new Label("Join our auction platform");
         subtitle.setTextFill(Color.web("#777777"));
         VBox.setMargin(subtitle, new Insets(0, 0, 10, 0));
 
         // Ô nhập liệu
         TextField usernameField = createCustomTextField("Username");
+        TextField emailField = createCustomTextField("Email");
         PasswordField passwordField = createCustomPasswordField("Password");
+        PasswordField confirmPasswordField = createCustomPasswordField("Confirm Password");
 
-        // Nút Login
-        Button loginBtn = createCustomButton("LOGIN");
-        loginBtn.setOnAction(e -> {
-            String user = usernameField.getText();
-            String pass = passwordField.getText();
+        // Nút Sign Up
+        Button signUpBtn = createCustomButton("SIGN UP");
+        signUpBtn.setOnAction(e -> {
+            String username = usernameField.getText().trim();
+            String email = emailField.getText().trim();
+            String password = passwordField.getText();
+            String confirmPassword = confirmPasswordField.getText();
 
             // Kiểm tra nhập liệu
-            if (user.isEmpty() || pass.isEmpty()) {
+            if (username.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Vui lòng nhập đầy đủ thông tin.");
+            } else if (username.length() < 3) {
+                showAlert(Alert.AlertType.WARNING, "Lỗi", "Username phải ít nhất 3 ký tự.");
+            } else if (!isValidEmail(email)) {
+                showAlert(Alert.AlertType.WARNING, "Lỗi", "Email không hợp lệ.");
+            } else if (password.length() < 6) {
+                showAlert(Alert.AlertType.WARNING, "Lỗi", "Mật khẩu phải ít nhất 6 ký tự.");
+            } else if (!password.equals(confirmPassword)) {
+                showAlert(Alert.AlertType.WARNING, "Lỗi", "Mật khẩu xác nhận không khớp.");
             } else {
-                // ĐĂNG NHẬP THÀNH CÔNG -> GỌI HÀM CHUYỂN CẢNH BÊN CLIENTMAIN (kèm username)
-                this.onLoginSuccess.accept(user);
+                // ✅ ĐĂNG KÝ THÀNH CÔNG - Lưu username và chuyển sang màn hình chính
+                if (this.onSignUpSuccess != null) {
+                    System.out.println("Đăng ký thành công với username: " + username);
+                    this.onSignUpSuccess.accept(username);
+                }
             }
         });
 
-        // Khu vực Đăng ký
-        HBox signUpBox = new HBox(5);
-        signUpBox.setAlignment(Pos.CENTER);
-        VBox.setMargin(signUpBox, new Insets(15, 0, 0, 0));
+        // Khu vực quay lại Login
+        HBox backBox = new HBox(5);
+        backBox.setAlignment(Pos.CENTER);
+        VBox.setMargin(backBox, new Insets(10, 0, 0, 0));
 
-        Label askLabel = new Label("Don't have an account?");
+        Label askLabel = new Label("Already have an account?");
         askLabel.setTextFill(Color.web("#777777"));
 
-        Label signUpLabel = new Label("Sign up");
-        signUpLabel.setTextFill(Color.web("#4facfe"));
-        signUpLabel.setFont(Font.font("System", FontWeight.BOLD, 13));
-        signUpLabel.setCursor(Cursor.HAND);
+        Label backLabel = new Label("Log in");
+        backLabel.setTextFill(Color.web("#4facfe"));
+        backLabel.setFont(Font.font("System", FontWeight.BOLD, 13));
+        backLabel.setCursor(Cursor.HAND);
 
-        // Hiệu ứng hover cho chữ Sign up
-        signUpLabel.setOnMouseEntered(e -> signUpLabel.setUnderline(true));
-        signUpLabel.setOnMouseExited(e -> signUpLabel.setUnderline(false));
-        signUpLabel.setOnMouseClicked(e -> {
-            // Chuyển sang màn hình Đăng Ký
-            this.onSignUp.run();
+        // Hiệu ứng hover
+        backLabel.setOnMouseEntered(e -> backLabel.setUnderline(true));
+        backLabel.setOnMouseExited(e -> backLabel.setUnderline(false));
+        backLabel.setOnMouseClicked(e -> {
+            if (onBackToLogin != null) {
+                onBackToLogin.run();
+            }
         });
 
-        signUpBox.getChildren().addAll(askLabel, signUpLabel);
+        backBox.getChildren().addAll(askLabel, backLabel);
 
         // Thêm tất cả vào Card
-        card.getChildren().addAll(title, subtitle, usernameField, passwordField, loginBtn, signUpBox);
+        card.getChildren().addAll(title, subtitle, usernameField, emailField, passwordField, confirmPasswordField, signUpBtn, backBox);
 
         // Thêm Card vào giữa Màn hình chính (StackPane)
         this.getChildren().add(card);
     }
 
-    // --- CÁC HÀM TIỆN ÍCH ĐỂ TẠO UI KHÔNG DÙNG CSS ---
+    // --- CÁC HÀM TIỆN ÍCH ---
 
     private TextField createCustomTextField(String prompt) {
         TextField tf = new TextField();
@@ -124,7 +140,6 @@ public class LoginView extends StackPane {
         return pf;
     }
 
-    // Dùng chung một hàm để style cho cả TextField và PasswordField
     private void styleInput(TextField input) {
         input.setPadding(new Insets(12, 15, 12, 15));
         input.setFont(Font.font(14));
@@ -138,7 +153,6 @@ public class LoginView extends StackPane {
         input.setBackground(normalBg);
         input.setBorder(normalBorder);
 
-        // Hiệu ứng đổi màu viền và nền khi click vào ô nhập (Focus)
         input.focusedProperty().addListener((obs, oldVal, isFocused) -> {
             input.setBorder(isFocused ? focusBorder : normalBorder);
             input.setBackground(isFocused ? focusBg : normalBg);
@@ -153,7 +167,6 @@ public class LoginView extends StackPane {
         btn.setFont(Font.font("System", FontWeight.BOLD, 16));
         btn.setCursor(Cursor.HAND);
 
-        // Gradient cho trạng thái bình thường và trạng thái hover
         Stop[] btnStopsNormal = new Stop[]{new Stop(0, Color.web("#4facfe")), new Stop(1, Color.web("#00f2fe"))};
         Stop[] btnStopsHover = new Stop[]{new Stop(0, Color.web("#00f2fe")), new Stop(1, Color.web("#4facfe"))};
 
@@ -167,11 +180,14 @@ public class LoginView extends StackPane {
 
         btn.setBackground(normalBg);
 
-        // Hiệu ứng đổi màu Gradient khi di chuột qua Nút
         btn.setOnMouseEntered(e -> btn.setBackground(hoverBg));
         btn.setOnMouseExited(e -> btn.setBackground(normalBg));
 
         return btn;
+    }
+
+    private boolean isValidEmail(String email) {
+        return email.matches("^[A-Za-z0-9+_.-]+@(.+)$");
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
@@ -182,3 +198,7 @@ public class LoginView extends StackPane {
         alert.showAndWait();
     }
 }
+
+
+
+

@@ -59,6 +59,24 @@ public class AuctionController {
         loadSampleProducts();
     }
 
+    /**
+     * Constructor với username được truyền vào (từ LoginView/SignUpView)
+     */
+    public AuctionController(AuctionUI ui, String username) {
+        this.ui = ui;
+        this.isJoined = false;
+        this.isAuctionActive = false;
+        this.currentLeader = "";
+        this.currentHighestPrice = 0;
+
+        // Sử dụng username được truyền vào
+        this.currentUsername = (username != null && !username.isEmpty()) ? username : "Người dùng";
+        ui.setCurrentUser(this.currentUsername);
+
+        // Tải dữ liệu sản phẩm mẫu (sau này thay bằng gọi network)
+        loadSampleProducts();
+    }
+
     // ==================== Xử lý Tham gia ====================
 
     /**
