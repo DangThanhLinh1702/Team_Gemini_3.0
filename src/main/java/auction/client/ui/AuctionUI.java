@@ -50,12 +50,13 @@ public class AuctionUI implements Initializable {
     private AuctionController controller;                        // Controller xử lý logic
     private ObservableList<ProductItem> productList;             // Dữ liệu bảng sản phẩm
     private ProductItem selectedProduct;                         // Sản phẩm đang được chọn
+    private String currentUsername;                              // Username hiện tại
 
     // ==================== Khởi tạo ====================
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        // Khởi tạo controller logic
+        // Khởi tạo controller logic (sử dụng constructor mặc định)
         controller = new AuctionController(this);
 
         // Khởi tạo danh sách sản phẩm
@@ -71,6 +72,18 @@ public class AuctionUI implements Initializable {
         setupBidInputValidator();
 
         appendLog("Ứng dụng khởi động. Vui lòng chọn sản phẩm để bắt đầu.");
+    }
+
+    /**
+     * Khởi tạo với username được truyền từ LoginView/SignUpView
+     * Phương thức này được gọi sau initialize()
+     */
+    public void initializeWithUsername(String username) {
+        if (username != null && !username.isEmpty()) {
+            this.currentUsername = username;
+            // Tạo lại controller với username
+            controller = new AuctionController(this, username);
+        }
     }
 
     // ==================== Setup ====================
