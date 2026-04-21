@@ -74,4 +74,10 @@ public class UserService {
         return null;
 
     }
+    public User getUserByUsername(String username) {
+        return userRepository.getAllUsers().stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+    }
 }

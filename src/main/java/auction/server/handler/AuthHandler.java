@@ -31,6 +31,11 @@ public class AuthHandler implements HttpHandler {
                 return;
             }
 
+            if ("GET".equals(httpMethod) && "/me".equals(path)) {
+                handleGetMe(exchange);
+                return;
+            }
+
             if (!"POST".equals(httpMethod)) {
                 HttpResponseUtil.sendHttpResponse(exchange, 405, new ResponseDTO("fail", "Phương thức không hỗ trợ"));
                 return;
@@ -70,6 +75,24 @@ public class AuthHandler implements HttpHandler {
             HttpResponseUtil.sendHttpResponse(exchange, 201, new ResponseDTO("success", "Đăng ký thành công"));
         } else {
             HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", result));
+        }
+    }
+
+    private void handleGetMe(HttpExchange exchange) throws IOException {
+        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String username = JwtUtil.getUsernameFromToken(token);
+
+            User user = userService.getUserByUsername(username);
+            if (user != null) {
+                ResponseDTO response = new ResponseDTO("success", "Lấy thông tin người dùng thành công", user);
+                HttpResponseUtil.sendHttpResponse(exchange, 200, response);
+            } else {
+                HttpResponseUtil.sendHttpResponse(exchange, 404, new ResponseDTO("fail", "Người dùng không tồn tại"));
+            }
+        } else {
+            HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Không có quyền truy cập"));
         }
     }
 }
