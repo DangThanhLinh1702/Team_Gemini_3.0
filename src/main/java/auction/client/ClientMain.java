@@ -31,7 +31,7 @@ public class ClientMain extends Application {
         // 1. Tải màn hình Login đầu tiên
         // Truyền hàm showAuctionScreen vào LoginView để nó biết cần làm gì khi login thành công
         // Truyền hàm showSignUpScreen để nó biết cần làm gì khi click Sign up
-        LoginView loginRoot = new LoginView(this::showAuctionScreen, this::showSignUpScreen);
+        LoginView loginRoot = new LoginView((username, role) -> showAuctionScreen(username, role), this::showSignUpScreen);
         Scene loginScene = new Scene(loginRoot, 800, 600);
 
         window.setScene(loginScene);
@@ -39,9 +39,9 @@ public class ClientMain extends Application {
     }
 
     /**
-     * Chuyển sang màn hình Auction và truyền username
+     * Chuyển sang màn hình Auction và truyền username và role
      */
-    public void showAuctionScreen(String username) {
+    public void showAuctionScreen(String username, String role) {
         try {
             // Lưu username hiện tại
             currentUsername = username;
@@ -53,7 +53,7 @@ public class ClientMain extends Application {
             // Lấy controller của AuctionUI để truyền username
             AuctionUI controller = loader.getController();
             if (controller != null && username != null) {
-                controller.initializeWithUsername(username);
+                controller.initializeWithUser(username, role);
             }
 
             Scene auctionScene = new Scene(root, 900, 600);
@@ -73,7 +73,7 @@ public class ClientMain extends Application {
      */
     public void showSignUpScreen() {
         try {
-            SignUpView signUpRoot = new SignUpView(this::showAuctionScreen, this::showLoginScreen);
+            SignUpView signUpRoot = new SignUpView((username, role) -> showAuctionScreen(username, role), this::showLoginScreen);
             Scene signUpScene = new Scene(signUpRoot, 800, 600);
 
             window.setScene(signUpScene);
@@ -90,7 +90,7 @@ public class ClientMain extends Application {
      */
     public void showLoginScreen() {
         try {
-            LoginView loginRoot = new LoginView(this::showAuctionScreen, this::showSignUpScreen);
+            LoginView loginRoot = new LoginView((username, role) -> showAuctionScreen(username, role), this::showSignUpScreen);
             Scene loginScene = new Scene(loginRoot, 800, 600);
 
             window.setScene(loginScene);

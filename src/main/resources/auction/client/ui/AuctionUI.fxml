@@ -18,7 +18,7 @@
             <Label text="🏷 Auction App"
                    style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Label text="Người dùng: "
+            <Label text=""
                    style="-fx-text-fill: #bdc3c7; -fx-font-size: 13px;"/>
             <Label fx:id="lblCurrentUser"
                    style="-fx-text-fill: #1abc9c; -fx-font-size: 13px; -fx-font-weight: bold;"/>
