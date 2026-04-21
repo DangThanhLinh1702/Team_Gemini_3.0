@@ -12,14 +12,6 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import java.net.URL;
 import java.util.ResourceBundle;
 
-/**
- * AuctionUI - Controller gắn với file AuctionUI.fxml
- *
- * Nhiệm vụ:
- *  - Hiển thị danh sách sản phẩm đấu giá
- *  - Cập nhật giá, người dẫn đầu, đếm ngược
- *  - Nhận input từ người dùng và chuyển sang AuctionController xử lý
- */
 public class AuctionUI implements Initializable {
 
     // ==================== FXML Components ====================
