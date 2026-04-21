@@ -12,17 +12,22 @@ import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class LoginView extends StackPane {
 
-    // Biến lưu trữ hành động chuyển trang khi đăng nhập thành công (với username và role)
-    private final BiConsumer<String, String> onLoginSuccess;
+    // Biến lưu trữ hành động chuyển trang khi đăng nhập thành công (với token)
+    private final Consumer<String> onLoginSuccess;
     // Callback để chuyển sang màn hình Sign Up
     private final Runnable onSignUp;
 
-    public LoginView(BiConsumer<String, String> onLoginSuccess, Runnable onSignUp) {
+    public LoginView(Consumer<String> onLoginSuccess, Runnable onSignUp) {
         this.onLoginSuccess = onLoginSuccess;
         this.onSignUp = onSignUp;
 
@@ -64,26 +69,18 @@ public class LoginView extends StackPane {
         TextField usernameField = createCustomTextField("Username");
         PasswordField passwordField = createCustomPasswordField("Password");
 
-        // ComboBox chọn vai trò
-        ComboBox<String> roleComboBox = new ComboBox<>();
-        roleComboBox.getItems().addAll("Bidder", "Seller", "Admin");
-        roleComboBox.setValue("Bidder"); // Mặc định
-        roleComboBox.setMaxWidth(Double.MAX_VALUE);
-        roleComboBox.setStyle("-fx-font-size: 14px; -fx-padding: 8; -fx-border-radius: 6; -fx-background-radius: 6; -fx-border-color: #3498db;");
-
         // Nút Login
         Button loginBtn = createCustomButton("LOGIN");
         loginBtn.setOnAction(e -> {
             String user = usernameField.getText();
             String pass = passwordField.getText();
-            String role = roleComboBox.getValue();
 
             // Kiểm tra nhập liệu
             if (user.isEmpty() || pass.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Vui lòng nhập đầy đủ thông tin.");
             } else {
                 // ĐĂNG NHẬP THÀNH CÔNG -> GỌI HÀM CHUYỂN CẢNH BÊN CLIENTMAIN (kèm username và role)
-                this.onLoginSuccess.accept(user, role);
+                this.onLoginSuccess.accept(user);
             }
         });
 
@@ -111,7 +108,7 @@ public class LoginView extends StackPane {
         signUpBox.getChildren().addAll(askLabel, signUpLabel);
 
         // Thêm tất cả vào Card
-        card.getChildren().addAll(title, subtitle, usernameField, passwordField, roleComboBox, loginBtn, signUpBox);
+        card.getChildren().addAll(title, subtitle, usernameField, passwordField, loginBtn, signUpBox);
 
         // Thêm Card vào giữa Màn hình chính (StackPane)
         this.getChildren().add(card);
@@ -191,4 +188,3 @@ public class LoginView extends StackPane {
         alert.showAndWait();
     }
 }
-
