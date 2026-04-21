@@ -12,16 +12,17 @@ import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class SignUpView extends StackPane {
 
-    // Callback khi đăng ký thành công (với username)
-    private final Consumer<String> onSignUpSuccess;
+    // Callback khi đăng ký thành công (với username và role)
+    private final BiConsumer<String, String> onSignUpSuccess;
     // Callback để quay lại màn hình login
     private final Runnable onBackToLogin;
 
-    public SignUpView(Consumer<String> onSignUpSuccess, Runnable onBackToLogin) {
+    public SignUpView(BiConsumer<String, String> onSignUpSuccess, Runnable onBackToLogin) {
         this.onSignUpSuccess = onSignUpSuccess;
         this.onBackToLogin = onBackToLogin;
 
@@ -61,25 +62,29 @@ public class SignUpView extends StackPane {
 
         // Ô nhập liệu
         TextField usernameField = createCustomTextField("Username");
-        TextField emailField = createCustomTextField("Email");
         PasswordField passwordField = createCustomPasswordField("Password");
         PasswordField confirmPasswordField = createCustomPasswordField("Confirm Password");
+
+        // ComboBox chọn vai trò
+        ComboBox<String> roleComboBox = new ComboBox<>();
+        roleComboBox.getItems().addAll("Bidder", "Seller", "Admin");
+        roleComboBox.setValue("Bidder"); // Mặc định
+        roleComboBox.setMaxWidth(Double.MAX_VALUE);
+        roleComboBox.setStyle("-fx-font-size: 14px; -fx-padding: 8; -fx-border-radius: 6; -fx-background-radius: 6; -fx-border-color: #3498db;");
 
         // Nút Sign Up
         Button signUpBtn = createCustomButton("SIGN UP");
         signUpBtn.setOnAction(e -> {
             String username = usernameField.getText().trim();
-            String email = emailField.getText().trim();
             String password = passwordField.getText();
             String confirmPassword = confirmPasswordField.getText();
+            String role = roleComboBox.getValue();
 
             // Kiểm tra nhập liệu
-            if (username.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Vui lòng nhập đầy đủ thông tin.");
             } else if (username.length() < 3) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Username phải ít nhất 3 ký tự.");
-            } else if (!isValidEmail(email)) {
-                showAlert(Alert.AlertType.WARNING, "Lỗi", "Email không hợp lệ.");
             } else if (password.length() < 6) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Mật khẩu phải ít nhất 6 ký tự.");
             } else if (!password.equals(confirmPassword)) {
@@ -87,8 +92,8 @@ public class SignUpView extends StackPane {
             } else {
                 // ✅ ĐĂNG KÝ THÀNH CÔNG - Lưu username và chuyển sang màn hình chính
                 if (this.onSignUpSuccess != null) {
-                    System.out.println("Đăng ký thành công với username: " + username);
-                    this.onSignUpSuccess.accept(username);
+                    System.out.println("Đăng ký thành công với username: " + username + " role: " + role);
+                    this.onSignUpSuccess.accept(username, role);
                 }
             }
         });
@@ -118,7 +123,7 @@ public class SignUpView extends StackPane {
         backBox.getChildren().addAll(askLabel, backLabel);
 
         // Thêm tất cả vào Card
-        card.getChildren().addAll(title, subtitle, usernameField, emailField, passwordField, confirmPasswordField, signUpBtn, backBox);
+        card.getChildren().addAll(title, subtitle, usernameField, passwordField, confirmPasswordField, roleComboBox, signUpBtn, backBox);
 
         // Thêm Card vào giữa Màn hình chính (StackPane)
         this.getChildren().add(card);
@@ -186,10 +191,6 @@ public class SignUpView extends StackPane {
         return btn;
     }
 
-    private boolean isValidEmail(String email) {
-        return email.matches("^[A-Za-z0-9+_.-]+@(.+)$");
-    }
-
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
@@ -198,7 +199,3 @@ public class SignUpView extends StackPane {
         alert.showAndWait();
     }
 }
-
-
-
-
