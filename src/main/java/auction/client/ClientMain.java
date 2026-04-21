@@ -31,7 +31,7 @@ public class ClientMain extends Application {
         // 1. Tải màn hình Login đầu tiên
         // Truyền hàm showAuctionScreen vào LoginView để nó biết cần làm gì khi login thành công
         // Truyền hàm showSignUpScreen để nó biết cần làm gì khi click Sign up
-        LoginView loginRoot = new LoginView((username, role) -> showAuctionScreen(username, role), this::showSignUpScreen);
+        LoginView loginRoot = new LoginView((username) -> showAuctionScreen(username, username.equals("admin") ? "Admin" : "Bidder"), this::showSignUpScreen);
         Scene loginScene = new Scene(loginRoot, 800, 600);
 
         window.setScene(loginScene);
@@ -90,7 +90,7 @@ public class ClientMain extends Application {
      */
     public void showLoginScreen() {
         try {
-            LoginView loginRoot = new LoginView((username, role) -> showAuctionScreen(username, role), this::showSignUpScreen);
+            LoginView loginRoot = new LoginView((username) -> showAuctionScreen(username, username.equals("admin") ? "Admin" : "Bidder"), this::showSignUpScreen);
             Scene loginScene = new Scene(loginRoot, 800, 600);
 
             window.setScene(loginScene);
