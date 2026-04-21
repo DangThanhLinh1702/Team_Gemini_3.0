@@ -75,15 +75,17 @@ public class AuctionUI implements Initializable {
     }
 
     /**
-     * Khởi tạo với username được truyền từ LoginView/SignUpView
+     * Khởi tạo với username và role được truyền từ LoginView/SignUpView
      * Phương thức này được gọi sau initialize()
      */
-    public void initializeWithUsername(String username) {
+    public void initializeWithUser(String username, String role) {
         if (username != null && !username.isEmpty()) {
             this.currentUsername = username;
             // Tạo lại controller với username
             controller = new AuctionController(this, username);
         }
+        // Set username: role to the label
+        setCurrentUser(username + ": " + role);
     }
 
     // ==================== Setup ====================
