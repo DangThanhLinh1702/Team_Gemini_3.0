@@ -31,4 +31,14 @@ public class JwtUtil {
             return null;
         }
     }
+
+    public static String getUsernameFromToken(String token) {
+        DecodedJWT decoded = verifyToken(token);
+        return decoded != null ? decoded.getSubject() : null;
+    }
+
+    public static String getRoleFromToken(String token) {
+        DecodedJWT decoded = verifyToken(token);
+        return decoded != null ? decoded.getClaim("role").asString() : null;
+    }
 }

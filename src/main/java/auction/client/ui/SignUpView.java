@@ -13,6 +13,7 @@ import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class SignUpView extends StackPane {
@@ -20,7 +21,7 @@ public class SignUpView extends StackPane {
     private final Consumer<String> onSignUpSuccess;
     private final Runnable onBackToLogin;
 
-    public SignUpView(Consumer<String> onSignUpSuccess, Runnable onBackToLogin) {
+    public SignUpView(BiConsumer<String, String> onSignUpSuccess, Runnable onBackToLogin) {
         this.onSignUpSuccess = onSignUpSuccess;
         this.onBackToLogin = onBackToLogin;
 
@@ -55,7 +56,6 @@ public class SignUpView extends StackPane {
         VBox.setMargin(subtitle, new Insets(0, 0, 10, 0));
 
         TextField usernameField = createCustomTextField("Username");
-        TextField emailField = createCustomTextField("Email");
         PasswordField passwordField = createCustomPasswordField("Password");
         PasswordField confirmPasswordField = createCustomPasswordField("Confirm Password");
 
@@ -71,13 +71,12 @@ public class SignUpView extends StackPane {
         // --- XỬ LÝ SỰ KIỆN GỬI LÊN SERVER ---
         signUpBtn.setOnAction(e -> {
             String username = usernameField.getText().trim();
-            String email = emailField.getText().trim();
             String password = passwordField.getText();
             String confirmPassword = confirmPasswordField.getText();
             String role = roleBox.getValue(); // Lấy vai trò được chọn
 
             // Kiểm tra nhập liệu
-            if (username.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Vui lòng nhập đầy đủ thông tin.");
                 return;
             }

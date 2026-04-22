@@ -38,7 +38,7 @@ public class ClientMain extends Application {
 
             AuctionUI controller = loader.getController();
             if (controller != null && username != null) {
-                controller.initializeWithUsername(username);
+                controller.initializeWithUser(username, role);
             }
 
             Scene auctionScene = new Scene(root, 900, 600);
