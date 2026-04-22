@@ -260,3 +260,4 @@ public class AuctionController {
     public long getCurrentHighestPrice() { return currentHighestPrice; }
     public String getCurrentLeader() { return currentLeader; }
 }
+

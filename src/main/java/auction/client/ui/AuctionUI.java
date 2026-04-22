@@ -313,4 +313,12 @@ public class AuctionUI implements Initializable {
     private String formatPrice(long price) {
         return String.format("%,d", price);
     }
+    @FXML
+    public void handleAddProduct() {
+        // Lấy tên username đang hiển thị trên màn hình (từ Label lblCurrentUser)
+        String username = lblCurrentUser.getText();
+
+        // Gọi lệnh chuyển sang màn hình Đăng Sản Phẩm
+        auction.client.ClientMain.showAddProductScreen(username);
+    }
 }

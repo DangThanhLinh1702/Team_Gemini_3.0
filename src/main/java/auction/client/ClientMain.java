@@ -3,102 +3,91 @@ package auction.client;
 import auction.client.ui.LoginView;
 import auction.client.ui.SignUpView;
 import auction.client.ui.AuctionUI;
+import auction.client.ui.AddProductView; // Nhớ import cái này
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-/**
- * ClientMain - Điểm khởi động của ứng dụng client
- */
 public class ClientMain extends Application {
 
-    // Tạo một biến static để lưu trữ cửa sổ chính, giúp chuyển Scene dễ dàng hơn
     private static Stage window;
-    // Lưu trữ username hiện tại
     private static String currentUsername = null;
+    private static ClientMain instance; // Thêm instance để gọi các hàm non-static nếu cần
 
     @Override
     public void start(Stage primaryStage) throws Exception {
         window = primaryStage;
+        instance = this; // Lưu instance của Application
 
-        // Cài đặt chung cho cửa sổ
         window.setTitle("Auction App - Login");
         window.setMinWidth(600);
         window.setMinHeight(500);
 
-        // 1. Tải màn hình Login đầu tiên
-        // Truyền hàm showAuctionScreen vào LoginView để nó biết cần làm gì khi login thành công
-        // Truyền hàm showSignUpScreen để nó biết cần làm gì khi click Sign up
-        LoginView loginRoot = new LoginView(this::showAuctionScreen, this::showSignUpScreen);
-        Scene loginScene = new Scene(loginRoot, 800, 600);
-
-        window.setScene(loginScene);
+        showLoginScreen(); // Gọi hàm show login khi bắt đầu
         window.show();
     }
 
-    /**
-     * Chuyển sang màn hình Auction và truyền username
-     */
-    public void showAuctionScreen(String username) {
+    // 1. Hàm showAuctionScreen (Đã đổi thành static)
+    public static void showAuctionScreen(String username) {
         try {
-            // Lưu username hiện tại
             currentUsername = username;
-
-            // Tải file FXML giao diện chính
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/auction/client/ui/AuctionUI.fxml"));
+            FXMLLoader loader = new FXMLLoader(ClientMain.class.getResource("/auction/client/ui/AuctionUI.fxml"));
             Parent root = loader.load();
 
-            // Lấy controller của AuctionUI để truyền username
             AuctionUI controller = loader.getController();
             if (controller != null && username != null) {
                 controller.initializeWithUsername(username);
             }
 
             Scene auctionScene = new Scene(root, 900, 600);
-
-            // Chuyển cảnh trên cửa sổ hiện tại (window)
             window.setScene(auctionScene);
             window.setTitle("Hệ thống Đấu giá trực tuyến");
             window.centerOnScreen();
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Không thể tải màn hình Auction: " + e.getMessage());
         }
     }
 
-    /**
-     * Chuyển sang màn hình Sign Up
-     */
-    public void showSignUpScreen() {
+    // 2. Hàm showAddProductScreen (Đã đổi thành static)
+    public static void showAddProductScreen(String username) {
         try {
-            SignUpView signUpRoot = new SignUpView(this::showAuctionScreen, this::showLoginScreen);
-            Scene signUpScene = new Scene(signUpRoot, 800, 600);
+            currentUsername = username;
+            // Tạo view mới, khi nhấn Back thì quay lại màn hình Auction
+            AddProductView addProductRoot = new AddProductView(currentUsername, () -> showAuctionScreen(currentUsername));
 
+            Scene addProductScene = new Scene(addProductRoot, 600, 500);
+            window.setScene(addProductScene);
+            window.setTitle("Seller Dashboard - Đăng Sản Phẩm");
+            window.centerOnScreen();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void showSignUpScreen() {
+        try {
+            // Lưu ý: vì các hàm trên là static, ta dùng ClientMain::showAuctionScreen
+            SignUpView signUpRoot = new SignUpView(ClientMain::showAuctionScreen, ClientMain::showLoginScreen);
+            Scene signUpScene = new Scene(signUpRoot, 800, 600);
             window.setScene(signUpScene);
             window.setTitle("Auction App - Sign Up");
             window.centerOnScreen();
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Không thể tải màn hình Sign Up: " + e.getMessage());
         }
     }
 
-    /**
-     * Chuyển lại màn hình Login
-     */
-    public void showLoginScreen() {
+    public static void showLoginScreen() {
         try {
-            LoginView loginRoot = new LoginView(this::showAuctionScreen, this::showSignUpScreen);
+            LoginView loginRoot = new LoginView(ClientMain::showAuctionScreen, ClientMain::showSignUpScreen);
             Scene loginScene = new Scene(loginRoot, 800, 600);
-
             window.setScene(loginScene);
             window.setTitle("Auction App - Login");
             window.centerOnScreen();
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Không thể tải màn hình Login: " + e.getMessage());
         }
     }
 
