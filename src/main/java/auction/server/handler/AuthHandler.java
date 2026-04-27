@@ -7,7 +7,7 @@ import auction.shared.dto.ResponseDTO;
 import auction.shared.dto.UserDTO;
 import auction.shared.util.HttpResponseUtil;
 import auction.shared.util.JwtUtil;
-import com.auth0.jwt.JWT;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -25,9 +25,19 @@ public class AuthHandler implements HttpHandler {
             String path = exchange.getRequestURI().getPath();
 
             if ("GET".equals(httpMethod) && "/users".equals(path)) {
-                var userList = userService.getAllUsers();
-                ResponseDTO response = new ResponseDTO("success", "Lấy danh sách thành công", userList);
-                HttpResponseUtil.sendHttpResponse(exchange, 200, response);
+                // ✓ Check admin
+                String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    String token = authHeader.substring(7);
+                    DecodedJWT jwt = JwtUtil.verifyToken(token);
+                    if (jwt != null && "ADMIN".equals(jwt.getClaim("role").asString())) {
+                        var userList = userService.getAllUsers();
+                        ResponseDTO response = new ResponseDTO("success", "Lấy danh sách thành công", userList);
+                        HttpResponseUtil.sendHttpResponse(exchange, 200, response);
+                        return;
+                    }
+                }
+                HttpResponseUtil.sendHttpResponse(exchange, 403, new ResponseDTO("fail", "Chỉ ADMIN mới có quyền xem"));
                 return;
             }
 
