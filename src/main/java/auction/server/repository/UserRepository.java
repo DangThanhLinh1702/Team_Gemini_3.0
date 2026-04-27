@@ -37,6 +37,14 @@ public class UserRepository {
             }
             return false;
         }
+        public User authenticate(String username, String password) {
+            for (User user : allUsers) {
+                if (user.getUsername().equals(username) && user.getPassword().equals(password)) {
+                    return user; // Trả về nguyên object User nếu đúng
+                }
+            }
+            return null; // Sai thì trả về null
+        }
 
         public List<User> getAllUsers() {
             return allUsers;

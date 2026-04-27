@@ -4,16 +4,22 @@ import auction.server.model.AuctionSession;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public class AuctionManager {
     // singleton
     private static AuctionManager instance;
     private final Map<String, AuctionSession> activeSessions;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5);
+    private Consumer<AuctionSession> onAuctionFinishedCallback;
 
     private AuctionManager() {
         activeSessions = new ConcurrentHashMap<>();
-        createNewSession("ITEM-01", "Điện thoại iPhone 15", 1000.0);
-        createNewSession("ITEM-02", "Laptop Dell XPS", 2500.0);
+        createNewSession("ITEM-01", "Điện thoại iPhone 15", 1000.0, 120);
+        createNewSession("ITEM-02", "Laptop Dell XPS", 2500.0,120);
 
     }
     public static synchronized AuctionManager getInstance(){
@@ -22,9 +28,19 @@ public class AuctionManager {
         }
         return instance;
     }
-    public void createNewSession(String id, String name, double startPrice) {
+    public void createNewSession(String id, String name, double startPrice, long durationSeconds) {
         AuctionSession session = new AuctionSession(id, name, startPrice);
         activeSessions.put(id, session);
+        scheduler.schedule(() -> {
+            session.finishAuction();
+            System.out.println("HẾT GIỜ! " + id + " | Người thắng: " + session.getHighestBidder());
+            if(onAuctionFinishedCallback != null){
+                onAuctionFinishedCallback.accept(session);
+            }
+        }, durationSeconds, TimeUnit.SECONDS);
+    }
+    public void setOnAuctionEndCallback(Consumer<AuctionSession> callback) {
+        this.onAuctionFinishedCallback = callback;
     }
     public AuctionSession getSession(String itemId) {
         return activeSessions.get(itemId);
