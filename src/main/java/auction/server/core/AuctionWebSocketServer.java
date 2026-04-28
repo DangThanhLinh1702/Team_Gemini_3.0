@@ -76,6 +76,17 @@ public class AuctionWebSocketServer extends WebSocketServer {
     @Override
     public void onStart() {
         System.out.println("WebSocket Server is starting: " + getPort());
+        AuctionManager.getInstance().setOnAuctionEndCallback(session -> {
+            Map<String, Object> data = new HashMap<>();
+            data.put("type", "AUCTION_ENDED");
+            data.put("itemId", session.getIdItem());
+            data.put("winner", session.getHighestBidder());
+            data.put("finalPrice", session.getCurrentPrice());
+
+            // ✓ Sửa: Dùng toJson() để convert ResponseDTO thành String
+            String jsonResponse = JsonUtil.toJson(JsonUtil.buildResponse("success", "Phiên đấu giá đã kết thúc!", data));
+            broadcastToRoom(session.getIdItem(), jsonResponse);
+        });
     }
     // hàm thêm client vào room sản phẩm
     private void joinRoom(WebSocket conn, String itemId, String username){
@@ -98,8 +109,8 @@ public class AuctionWebSocketServer extends WebSocketServer {
             data.put("user", username);
             data.put("price", price);
 
-            //Dùng JsonUtil để đóng gói thành json
-            String jsonResponse = JsonUtil.buildResponse("success", "Đặt giá thành công!", data);
+            // ✓ Sửa: Dùng toJson() để convert ResponseDTO thành String
+            String jsonResponse = JsonUtil.toJson(JsonUtil.buildResponse("success", "Đặt giá thành công!", data));
             broadcastToRoom(itemId, jsonResponse);
             System.out.println(username + " nâng giá " + itemId + " lên " + price);
         }
@@ -120,8 +131,8 @@ public class AuctionWebSocketServer extends WebSocketServer {
         }
     }
     private void sendError(WebSocket webSocket, String message) {
-        // Không cần tạo Map thủ công nữa, dùng luôn JsonUtil
-        String json = JsonUtil.buildResponse("error", message, null);
+        // ✓ Sửa: Dùng toJson() để convert ResponseDTO thành String
+        String json = JsonUtil.toJson(JsonUtil.buildResponse("error", message, null));
         webSocket.send(json);
     }
 }

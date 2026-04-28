@@ -14,51 +14,73 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
 public class ItemHandler implements HttpHandler {
-    private ItemService itemService = new ItemService();
-    private Gson gson = new Gson();
+    private final ItemService itemService = new ItemService();
+    private final Gson gson = new Gson();
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        //lay ve request method tu client gui len
         try {
             String method = exchange.getRequestMethod().toUpperCase();
+
+            // === GET: Lấy danh sách sản phẩm ===
             if ("GET".equals(method)) {
                 var listItem = itemService.getAllItem();
-                ResponseDTO response = new ResponseDTO("success", "lây danh sách sản phẩm thành công", listItem);
+                ResponseDTO response = new ResponseDTO("success", "Lấy danh sách sản phẩm thành công", listItem);
                 HttpResponseUtil.sendHttpResponse(exchange, 200, response);
                 return;
             }
+
+            // === POST: Thêm sản phẩm (cần SELLER auth) ===
             if ("POST".equals(method)) {
                 String jsonBody = HttpServerUtil.readRequestBody(exchange);
                 if (jsonBody.isEmpty()) {
-                    HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", "dữ liệu trống"));
+                    HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", "Dữ liệu trống"));
                     return;
                 }
-                // chuyen json -> obj thuoc class ItemDTO
+
+                // Kiểm tra Authorization header trước
+                String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Vui lòng đăng nhập"));
+                    return;
+                }
+
+                String token = authHeader.substring(7);
+                DecodedJWT jwt = JwtUtil.verifyToken(token);
+                if (jwt == null) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Token không hợp lệ"));
+                    return;
+                }
+
+                // Kiểm tra role = SELLER
+                if (!"SELLER".equals(jwt.getClaim("role").asString())) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 403, new ResponseDTO("fail", "Chỉ SELLER mới có quyền thêm sản phẩm"));
+                    return;
+                }
+
+                //  Parse ItemDTO
                 ItemDTO itemDTO = gson.fromJson(jsonBody, ItemDTO.class);
-                String resultMessage = itemService.addItem(itemDTO.getName(), itemDTO.getDescription(), itemDTO.getStartingPrice(), itemDTO.getSellerUsername());
+                String sellerUsername = jwt.getSubject();
+
+                // Thêm item vào database
+                String resultMessage = itemService.addItem(
+                        itemDTO.getName(),
+                        itemDTO.getDescription(),
+                        itemDTO.getStartingPrice(),
+                        sellerUsername
+                );
+
                 if ("success".equals(resultMessage)) {
-                    HttpResponseUtil.sendHttpResponse(exchange, 201, new ResponseDTO("success", "thêm sản phẩm thành công"));
+                    HttpResponseUtil.sendHttpResponse(exchange, 201, new ResponseDTO("success", "Thêm sản phẩm thành công"));
                 } else {
                     HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", resultMessage));
                 }
                 return;
             }
-            HttpResponseUtil.sendHttpResponse(exchange, 405, new ResponseDTO("fail", "phương thức không hỗ trợ"));
-        }catch (Exception e) {
-            HttpResponseUtil.sendHttpResponse(exchange, 500, new ResponseDTO("error", "Lỗi nội bộ Server: " + e.getMessage()));
+            HttpResponseUtil.sendHttpResponse(exchange, 405, new ResponseDTO("fail", "Phương thức không hỗ trợ"));
+
+        } catch (Exception e) {
+            HttpResponseUtil.sendHttpResponse(exchange, 500, new ResponseDTO("error", "Lỗi Server: " + e.getMessage()));
         }
-    }
-    public String handleAddItem(String jsonRequest, String token) {
-        DecodedJWT jwt = JwtUtil.verifyToken(token);
-        if (jwt == null) {
-            return "{\"status\":\"error\", \"msg\":\"Chưa đăng nhập!\"}";
-        }
-        // Lấy chức vụ từ Token ra kiểm tra
-        String role = jwt.getClaim("role").asString();
-        if (!"SELLER".equals(role)) {
-            return "{\"status\":\"error\", \"msg\":\"Bạn là Bidder, không có quyền thêm sản phẩm!\"}";
-        }
-        // Nếu là SELLER thì cho phép lưu sản phẩm vào DB
-        return "{\"status\":\"success\", \"msg\":\"Thêm sản phẩm thành công!\"}";
     }
 }
