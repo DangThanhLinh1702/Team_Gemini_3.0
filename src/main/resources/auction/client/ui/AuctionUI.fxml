@@ -11,25 +11,29 @@
             prefWidth="900" prefHeight="600"
             style="-fx-background-color: #f4f6f9;">
 
-    <!-- ===== HEADER ===== -->
     <top>
         <HBox alignment="CENTER_LEFT" spacing="20"
               style="-fx-background-color: #2c3e50; -fx-padding: 15;">
             <Label text="🏷 Auction App"
                    style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
+
             <Region HBox.hgrow="ALWAYS"/>
-            <Label text=""
-                   style="-fx-text-fill: #bdc3c7; -fx-font-size: 13px;"/>
+
+            <Button fx:id="btnPostItem"
+                    text="➕ Đăng bán sản phẩm"
+                    onAction="#handlePostItem"
+                    visible="false"
+                    managed="${btnPostItem.visible}"
+                    style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
+
             <Label fx:id="lblCurrentUser"
                    style="-fx-text-fill: #1abc9c; -fx-font-size: 13px; -fx-font-weight: bold;"/>
         </HBox>
     </top>
 
-    <!-- ===== NỘI DUNG CHÍNH ===== -->
     <center>
         <HBox spacing="15" style="-fx-padding: 15;">
 
-            <!-- ==== BẢNG DANH SÁCH SẢN PHẨM ==== -->
             <VBox spacing="10" HBox.hgrow="ALWAYS">
                 <Label text="📦 Danh sách sản phẩm đấu giá"
                        style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
@@ -37,13 +41,9 @@
                 <TableView fx:id="tableProducts" VBox.vgrow="ALWAYS"
                            style="-fx-background-color: white; -fx-border-color: #dce1e7; -fx-border-radius: 8;">
                     <columns>
-                        <!-- Tên sản phẩm -->
                         <TableColumn fx:id="colProductName" text="Tên sản phẩm" prefWidth="200"/>
-                        <!-- Giá hiện tại -->
                         <TableColumn fx:id="colCurrentPrice" text="Giá hiện tại (VNĐ)" prefWidth="160"/>
-                        <!-- Người dẫn đầu -->
                         <TableColumn fx:id="colLeader" text="Người dẫn đầu" prefWidth="150"/>
-                        <!-- Trạng thái -->
                         <TableColumn fx:id="colStatus" text="Trạng thái" prefWidth="100"/>
                     </columns>
                     <placeholder>
@@ -53,12 +53,10 @@
                 </TableView>
             </VBox>
 
-            <!-- ==== PANEL ĐẶT GIÁ BÊN PHẢI ==== -->
             <VBox spacing="15" prefWidth="280"
                   style="-fx-background-color: white; -fx-border-color: #dce1e7;
                          -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 20;">
 
-                <!-- Thông tin sản phẩm đang chọn -->
                 <Label text="🎯 Sản phẩm đang chọn"
                        style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
                 <Label fx:id="lblSelectedProduct"
@@ -68,7 +66,6 @@
 
                 <Separator/>
 
-                <!-- Giá hiện tại -->
                 <VBox spacing="4">
                     <Label text="💰 Giá hiện tại:"
                            style="-fx-font-size: 13px; -fx-text-fill: #7f8c8d;"/>
@@ -77,7 +74,6 @@
                            style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;"/>
                 </VBox>
 
-                <!-- Người đang dẫn đầu -->
                 <VBox spacing="4"
                       style="-fx-background-color: #eafaf1; -fx-border-color: #27ae60;
                              -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;">
@@ -88,7 +84,6 @@
                            style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1e8449;"/>
                 </VBox>
 
-                <!-- Đếm ngược thời gian -->
                 <VBox spacing="4" alignment="CENTER"
                       style="-fx-background-color: #fef9e7; -fx-border-color: #f39c12;
                              -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;">
@@ -101,7 +96,6 @@
 
                 <Separator/>
 
-                <!-- Ô nhập giá bid -->
                 <VBox spacing="6">
                     <Label text="✏️ Nhập giá của bạn (VNĐ):"
                            style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
@@ -111,9 +105,7 @@
                                       -fx-background-radius: 6; -fx-border-color: #3498db;"/>
                 </VBox>
 
-                <!-- Nút hành động -->
                 <VBox spacing="8">
-                    <!-- Nút Tham gia phiên -->
                     <Button fx:id="btnJoin"
                             text="🚀 Tham gia đấu giá"
                             maxWidth="Infinity"
@@ -123,7 +115,6 @@
                                    -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
                                    -fx-cursor: hand;"/>
 
-                    <!-- Nút Đặt giá -->
                     <Button fx:id="btnBid"
                             text="💸 Đặt giá"
                             maxWidth="Infinity"
@@ -137,7 +128,6 @@
 
                 <Separator/>
 
-                <!-- Thông báo trạng thái -->
                 <Label fx:id="lblNotification"
                        text=""
                        wrapText="true"
@@ -147,7 +137,6 @@
         </HBox>
     </center>
 
-    <!-- ===== FOOTER - LOG HOẠT ĐỘNG ===== -->
     <bottom>
         <VBox style="-fx-padding: 10 15 10 15; -fx-background-color: #ecf0f1;">
             <Label text="📋 Lịch sử hoạt động:"

@@ -1,5 +1,8 @@
 package auction.client.ui;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -18,16 +21,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class LoginView extends StackPane {
 
-    // Biến lưu trữ hành động chuyển trang khi đăng nhập thành công (với token)
-    private final Consumer<String> onLoginSuccess;
-    // Callback để chuyển sang màn hình Sign Up
+    private final BiConsumer<String, String> onLoginSuccess;
     private final Runnable onSignUp;
 
-    public LoginView(Consumer<String> onLoginSuccess, Runnable onSignUp) {
+    public LoginView(BiConsumer<String, String> onLoginSuccess, Runnable onSignUp) {
         this.onLoginSuccess = onLoginSuccess;
         this.onSignUp = onSignUp;
 
@@ -44,11 +44,8 @@ public class LoginView extends StackPane {
         card.setMaxSize(400, 450);
         card.setPadding(new Insets(40));
         card.setAlignment(Pos.CENTER);
-
-        // Bo góc nền trắng cho Card
         card.setBackground(new Background(new BackgroundFill(Color.WHITE, new CornerRadii(15), Insets.EMPTY)));
 
-        // Đổ bóng (DropShadow)
         DropShadow shadow = new DropShadow();
         shadow.setColor(Color.color(0, 0, 0, 0.25));
         shadow.setRadius(20);
@@ -56,7 +53,6 @@ public class LoginView extends StackPane {
         card.setEffect(shadow);
 
         // 3. CÁC THÀNH PHẦN BÊN TRONG CARD
-        // Tiêu đề
         Label title = new Label("Welcome Back");
         title.setFont(Font.font("System", FontWeight.BOLD, 28));
         title.setTextFill(Color.web("#333333"));
@@ -65,26 +61,70 @@ public class LoginView extends StackPane {
         subtitle.setTextFill(Color.web("#777777"));
         VBox.setMargin(subtitle, new Insets(0, 0, 10, 0));
 
-        // Ô nhập liệu
         TextField usernameField = createCustomTextField("Username");
         PasswordField passwordField = createCustomPasswordField("Password");
 
-        // Nút Login
         Button loginBtn = createCustomButton("LOGIN");
+
+        // XỬ LÝ ĐĂNG NHẬP
         loginBtn.setOnAction(e -> {
             String user = usernameField.getText();
             String pass = passwordField.getText();
 
-            // Kiểm tra nhập liệu
             if (user.isEmpty() || pass.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Vui lòng nhập đầy đủ thông tin.");
-            } else {
-                // ĐĂNG NHẬP THÀNH CÔNG -> GỌI HÀM CHUYỂN CẢNH BÊN CLIENTMAIN (kèm username và role)
-                this.onLoginSuccess.accept(user);
+                return;
             }
+
+            new Thread(() -> {
+                try {
+                    String jsonBody = String.format("{\"username\":\"%s\", \"password\":\"%s\"}", user, pass);
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create("http://localhost:8080/login"))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                            .build();
+
+                    HttpClient client = HttpClient.newHttpClient();
+                    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+                    Platform.runLater(() -> {
+                        if (response.statusCode() == 200) {
+                            // IN RA ĐỂ KIỂM TRA DỮ LIỆU THẬT CỦA SERVER
+                            System.out.println("=== PHẢN HỒI TỪ SERVER (LOGIN) ===");
+                            System.out.println(response.body());
+
+                            try {
+                                JsonObject jsonObject = new Gson().fromJson(response.body(), JsonObject.class);
+                                String role = "Bidder"; // Gán mặc định để tránh crash
+
+                                // Xử lý an toàn: Kiểm tra xem 'data' là Object hay chữ bình thường
+                                if (jsonObject.has("data") && jsonObject.get("data").isJsonObject()) {
+                                    JsonObject dataObj = jsonObject.getAsJsonObject("data");
+                                    if (dataObj.has("role")) {
+                                        role = dataObj.get("role").getAsString();
+                                    }
+                                } else if (jsonObject.has("role")) {
+                                    // Trường hợp role nằm thẳng ở ngoài
+                                    role = jsonObject.get("role").getAsString();
+                                }
+
+                                this.onLoginSuccess.accept(user, role);
+                            } catch (Exception ex) {
+                                System.err.println("Cảnh báo khi đọc JSON: " + ex.getMessage());
+                                // Nếu đọc lỗi vẫn cho vào (mặc định là Bidder) để tiện test giao diện
+                                this.onLoginSuccess.accept(user, "Bidder");
+                            }
+                        } else {
+                            showAlert(Alert.AlertType.ERROR, "Đăng nhập thất bại", "Sai tài khoản hoặc mật khẩu!");
+                        }
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Lỗi Mạng", "Không thể kết nối đến Server!"));
+                }
+            }).start();
         });
 
-        // Khu vực Đăng ký
         HBox signUpBox = new HBox(5);
         signUpBox.setAlignment(Pos.CENTER);
         VBox.setMargin(signUpBox, new Insets(15, 0, 0, 0));
@@ -97,24 +137,14 @@ public class LoginView extends StackPane {
         signUpLabel.setFont(Font.font("System", FontWeight.BOLD, 13));
         signUpLabel.setCursor(Cursor.HAND);
 
-        // Hiệu ứng hover cho chữ Sign up
         signUpLabel.setOnMouseEntered(e -> signUpLabel.setUnderline(true));
         signUpLabel.setOnMouseExited(e -> signUpLabel.setUnderline(false));
-        signUpLabel.setOnMouseClicked(e -> {
-            // Chuyển sang màn hình Đăng Ký
-            this.onSignUp.run();
-        });
+        signUpLabel.setOnMouseClicked(e -> this.onSignUp.run());
 
         signUpBox.getChildren().addAll(askLabel, signUpLabel);
-
-        // Thêm tất cả vào Card
         card.getChildren().addAll(title, subtitle, usernameField, passwordField, loginBtn, signUpBox);
-
-        // Thêm Card vào giữa Màn hình chính (StackPane)
         this.getChildren().add(card);
     }
-
-    // --- CÁC HÀM TIỆN ÍCH ĐỂ TẠO UI KHÔNG DÙNG CSS ---
 
     private TextField createCustomTextField(String prompt) {
         TextField tf = new TextField();
@@ -130,7 +160,6 @@ public class LoginView extends StackPane {
         return pf;
     }
 
-    // Dùng chung một hàm để style cho cả TextField và PasswordField
     private void styleInput(TextField input) {
         input.setPadding(new Insets(12, 15, 12, 15));
         input.setFont(Font.font(14));
@@ -144,7 +173,6 @@ public class LoginView extends StackPane {
         input.setBackground(normalBg);
         input.setBorder(normalBorder);
 
-        // Hiệu ứng đổi màu viền và nền khi click vào ô nhập (Focus)
         input.focusedProperty().addListener((obs, oldVal, isFocused) -> {
             input.setBorder(isFocused ? focusBorder : normalBorder);
             input.setBackground(isFocused ? focusBg : normalBg);
@@ -159,21 +187,13 @@ public class LoginView extends StackPane {
         btn.setFont(Font.font("System", FontWeight.BOLD, 16));
         btn.setCursor(Cursor.HAND);
 
-        // Gradient cho trạng thái bình thường và trạng thái hover
         Stop[] btnStopsNormal = new Stop[]{new Stop(0, Color.web("#4facfe")), new Stop(1, Color.web("#00f2fe"))};
         Stop[] btnStopsHover = new Stop[]{new Stop(0, Color.web("#00f2fe")), new Stop(1, Color.web("#4facfe"))};
 
-        Background normalBg = new Background(new BackgroundFill(
-                new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE, btnStopsNormal),
-                new CornerRadii(8), Insets.EMPTY));
-
-        Background hoverBg = new Background(new BackgroundFill(
-                new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE, btnStopsHover),
-                new CornerRadii(8), Insets.EMPTY));
+        Background normalBg = new Background(new BackgroundFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE, btnStopsNormal), new CornerRadii(8), Insets.EMPTY));
+        Background hoverBg = new Background(new BackgroundFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE, btnStopsHover), new CornerRadii(8), Insets.EMPTY));
 
         btn.setBackground(normalBg);
-
-        // Hiệu ứng đổi màu Gradient khi di chuột qua Nút
         btn.setOnMouseEntered(e -> btn.setBackground(hoverBg));
         btn.setOnMouseExited(e -> btn.setBackground(normalBg));
 

@@ -1,5 +1,6 @@
 package auction.server.handler;
 
+import auction.server.core.AuctionManager;
 import auction.server.service.ItemService;
 import auction.server.util.HttpServerUtil;
 import auction.shared.dto.ItemDTO;
@@ -71,7 +72,17 @@ public class ItemHandler implements HttpHandler {
                 );
 
                 if ("success".equals(resultMessage)) {
-                    HttpResponseUtil.sendHttpResponse(exchange, 201, new ResponseDTO("success", "Thêm sản phẩm thành công"));
+                    // 🌟 Bơm thẳng sản phẩm vừa tạo vào RAM để đấu giá!
+                    String newItemId = "SP-" + System.currentTimeMillis(); // Tạo mã ID giả lập tạm thời
+
+                    AuctionManager.getInstance().createNewSession(
+                            newItemId,
+                            itemDTO.getName(),
+                            itemDTO.getStartingPrice(),
+                            60 // Thời gian đấu giá
+                    );
+
+                    HttpResponseUtil.sendHttpResponse(exchange, 201, new ResponseDTO("success", "Thêm sản phẩm thành công! Mã: " + newItemId));
                 } else {
                     HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", resultMessage));
                 }

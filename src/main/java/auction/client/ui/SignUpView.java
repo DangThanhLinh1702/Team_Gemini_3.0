@@ -1,5 +1,6 @@
 package auction.client.ui;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -12,14 +13,16 @@ import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class SignUpView extends StackPane {
 
-    // Callback khi đăng ký thành công (với username và role)
     private final BiConsumer<String, String> onSignUpSuccess;
-    // Callback để quay lại màn hình login
     private final Runnable onBackToLogin;
 
     public SignUpView(BiConsumer<String, String> onSignUpSuccess, Runnable onBackToLogin) {
@@ -40,10 +43,8 @@ public class SignUpView extends StackPane {
         card.setPadding(new Insets(40));
         card.setAlignment(Pos.TOP_CENTER);
 
-        // Bo góc nền trắng cho Card
         card.setBackground(new Background(new BackgroundFill(Color.WHITE, new CornerRadii(15), Insets.EMPTY)));
 
-        // Đổ bóng (DropShadow)
         DropShadow shadow = new DropShadow();
         shadow.setColor(Color.color(0, 0, 0, 0.25));
         shadow.setRadius(20);
@@ -51,7 +52,6 @@ public class SignUpView extends StackPane {
         card.setEffect(shadow);
 
         // 3. CÁC THÀNH PHẦN BÊN TRONG CARD
-        // Tiêu đề
         Label title = new Label("Create Account");
         title.setFont(Font.font("System", FontWeight.BOLD, 28));
         title.setTextFill(Color.web("#333333"));
@@ -60,45 +60,68 @@ public class SignUpView extends StackPane {
         subtitle.setTextFill(Color.web("#777777"));
         VBox.setMargin(subtitle, new Insets(0, 0, 10, 0));
 
-        // Ô nhập liệu
         TextField usernameField = createCustomTextField("Username");
         PasswordField passwordField = createCustomPasswordField("Password");
         PasswordField confirmPasswordField = createCustomPasswordField("Confirm Password");
 
-        // ComboBox chọn vai trò
         ComboBox<String> roleComboBox = new ComboBox<>();
         roleComboBox.getItems().addAll("Bidder", "Seller", "Admin");
-        roleComboBox.setValue("Bidder"); // Mặc định
+        roleComboBox.setValue("Bidder");
         roleComboBox.setMaxWidth(Double.MAX_VALUE);
         roleComboBox.setStyle("-fx-font-size: 14px; -fx-padding: 8; -fx-border-radius: 6; -fx-background-radius: 6; -fx-border-color: #3498db;");
 
-        // Nút Sign Up
         Button signUpBtn = createCustomButton("SIGN UP");
+
+        // 🌟 THAY ĐỔI TẠI ĐÂY: Thêm luồng gọi API Đăng ký lên Server
         signUpBtn.setOnAction(e -> {
             String username = usernameField.getText().trim();
             String password = passwordField.getText();
             String confirmPassword = confirmPasswordField.getText();
             String role = roleComboBox.getValue();
 
-            // Kiểm tra nhập liệu
             if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Vui lòng nhập đầy đủ thông tin.");
+                return;
             } else if (username.length() < 3) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Username phải ít nhất 3 ký tự.");
+                return;
             } else if (password.length() < 6) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Mật khẩu phải ít nhất 6 ký tự.");
+                return;
             } else if (!password.equals(confirmPassword)) {
                 showAlert(Alert.AlertType.WARNING, "Lỗi", "Mật khẩu xác nhận không khớp.");
-            } else {
-                // ✅ ĐĂNG KÝ THÀNH CÔNG - Lưu username và chuyển sang màn hình chính
-                if (this.onSignUpSuccess != null) {
-                    System.out.println("Đăng ký thành công với username: " + username + " role: " + role);
-                    this.onSignUpSuccess.accept(username, role);
-                }
+                return;
             }
+
+            // Gửi dữ liệu Đăng ký lên Server
+            new Thread(() -> {
+                try {
+                    String jsonBody = String.format("{\"username\":\"%s\", \"password\":\"%s\", \"role\":\"%s\"}", username, password, role);
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create("http://localhost:8080/register"))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                            .build();
+
+                    HttpClient client = HttpClient.newHttpClient();
+                    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+                    Platform.runLater(() -> {
+                        if (response.statusCode() == 200 || response.statusCode() == 201) {
+                            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Tạo tài khoản thành công! Bấm OK để tiếp tục");
+                            if (this.onSignUpSuccess != null) {
+                                this.onSignUpSuccess.accept(username, role);
+                            }
+                        } else {
+                            showAlert(Alert.AlertType.ERROR, "Đăng ký thất bại", "Tài khoản đã tồn tại hoặc có lỗi từ máy chủ!");
+                        }
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Lỗi Mạng", "Không thể kết nối đến Server!"));
+                }
+            }).start();
         });
 
-        // Khu vực quay lại Login
         HBox backBox = new HBox(5);
         backBox.setAlignment(Pos.CENTER);
         VBox.setMargin(backBox, new Insets(10, 0, 0, 0));
@@ -111,7 +134,6 @@ public class SignUpView extends StackPane {
         backLabel.setFont(Font.font("System", FontWeight.BOLD, 13));
         backLabel.setCursor(Cursor.HAND);
 
-        // Hiệu ứng hover
         backLabel.setOnMouseEntered(e -> backLabel.setUnderline(true));
         backLabel.setOnMouseExited(e -> backLabel.setUnderline(false));
         backLabel.setOnMouseClicked(e -> {
@@ -121,15 +143,9 @@ public class SignUpView extends StackPane {
         });
 
         backBox.getChildren().addAll(askLabel, backLabel);
-
-        // Thêm tất cả vào Card
         card.getChildren().addAll(title, subtitle, usernameField, passwordField, confirmPasswordField, roleComboBox, signUpBtn, backBox);
-
-        // Thêm Card vào giữa Màn hình chính (StackPane)
         this.getChildren().add(card);
     }
-
-    // --- CÁC HÀM TIỆN ÍCH ---
 
     private TextField createCustomTextField(String prompt) {
         TextField tf = new TextField();

@@ -6,15 +6,18 @@ public class AuctionSession {
     private double currentPrice;
     private String highestBidder;
     private boolean isFinished;
+    private long endTime; // THÊM: Lưu lại mốc thời gian kết thúc (millisecond)
 
-    public AuctionSession(String idItem, String nameItem, double startingPrice) {
+    public AuctionSession(String idItem, String nameItem, double startingPrice, long durationSeconds) {
         this.idItem = idItem;
         this.nameItem = nameItem;
         this.currentPrice = startingPrice;
         this.highestBidder = "Chưa có ai";
         this.isFinished = false;
+        // Tính toán thời gian kết thúc ngay khi tạo phiên
+        this.endTime = System.currentTimeMillis() + (durationSeconds * 1000);
     }
-    // HÀM QUAN TRỌNG NHẤT: XỬ LÝ ĐỒNG THỜI
+
     public synchronized boolean placeBid(String username , double newBidPrice){
         if(isFinished){
             return false;
@@ -26,28 +29,15 @@ public class AuctionSession {
         }
         return false;
     }
-    // Hàm dùng để khóa phiên đấu giá khi hết giờ
+
     public synchronized void finishAuction() {
         this.isFinished = true;
     }
 
-    public String getIdItem() {
-        return idItem;
-    }
-
-    public String getNameItem() {
-        return nameItem;
-    }
-
-    public double getCurrentPrice() {
-        return currentPrice;
-    }
-
-    public String getHighestBidder() {
-        return highestBidder;
-    }
-
-    public boolean isFinished() {
-        return isFinished;
-    }
+    public String getIdItem() { return idItem; }
+    public String getNameItem() { return nameItem; }
+    public double getCurrentPrice() { return currentPrice; }
+    public String getHighestBidder() { return highestBidder; }
+    public boolean isFinished() { return isFinished; }
+    public long getEndTime() { return endTime; } // THÊM: Getter cho endTime
 }
