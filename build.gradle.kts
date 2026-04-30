@@ -25,7 +25,10 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.auth0:java-jwt:4.5.1")
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
+    implementation("com.mysql:mysql-connector-j:8.0.33")
 }
+
+
 sourceSets {
     main {
         resources {

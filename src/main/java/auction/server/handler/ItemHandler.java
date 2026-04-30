@@ -1,6 +1,8 @@
 package auction.server.handler;
 
 import auction.server.core.AuctionManager;
+import auction.server.model.Item;
+import auction.server.repository.ItemRepository;
 import auction.server.service.ItemService;
 import auction.server.util.HttpServerUtil;
 import auction.shared.dto.ItemDTO;
@@ -13,10 +15,12 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 
 public class ItemHandler implements HttpHandler {
     private final ItemService itemService = new ItemService();
     private final Gson gson = new Gson();
+    private final ItemRepository itemRepository = new ItemRepository();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -39,7 +43,7 @@ public class ItemHandler implements HttpHandler {
                     return;
                 }
 
-                // Kiểm tra Authorization header trước
+                // Kiểm tra Authorization header
                 String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
                 if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                     HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Vui lòng đăng nhập"));
@@ -59,7 +63,7 @@ public class ItemHandler implements HttpHandler {
                     return;
                 }
 
-                //  Parse ItemDTO
+                // Parse ItemDTO
                 ItemDTO itemDTO = gson.fromJson(jsonBody, ItemDTO.class);
                 String sellerUsername = jwt.getSubject();
 
@@ -70,24 +74,26 @@ public class ItemHandler implements HttpHandler {
                         itemDTO.getStartingPrice(),
                         sellerUsername
                 );
-
                 if ("success".equals(resultMessage)) {
-                    // 🌟 Bơm thẳng sản phẩm vừa tạo vào RAM để đấu giá!
-                    String newItemId = "SP-" + System.currentTimeMillis(); // Tạo mã ID giả lập tạm thời
+                    // Lấy item vừa thêm
+                    Item newItem = itemService.getLastInsertedItem();
 
+                    // Tạo phiên đấu giá mới với ID thật
                     AuctionManager.getInstance().createNewSession(
-                            newItemId,
-                            itemDTO.getName(),
+                            newItem.getId(),
+                            newItem.getSellerId(),
                             itemDTO.getStartingPrice(),
-                            60 // Thời gian đấu giá
+                            60
                     );
 
-                    HttpResponseUtil.sendHttpResponse(exchange, 201, new ResponseDTO("success", "Thêm sản phẩm thành công! Mã: " + newItemId));
+                    HttpResponseUtil.sendHttpResponse(exchange, 201,
+                            new ResponseDTO("success", "Thêm sản phẩm thành công! Mã: " + newItem.getId()));
                 } else {
                     HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", resultMessage));
                 }
                 return;
             }
+
             HttpResponseUtil.sendHttpResponse(exchange, 405, new ResponseDTO("fail", "Phương thức không hỗ trợ"));
 
         } catch (Exception e) {
