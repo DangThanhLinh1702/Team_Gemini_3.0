@@ -13,6 +13,11 @@ public abstract class User extends Entity {
         this.password = password;
         this.role = role;
     }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
     public int getId() {
         return id;
     }

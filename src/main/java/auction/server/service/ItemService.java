@@ -15,6 +15,13 @@ public class ItemService {
         itemRepository.saveItem(newItem);
         return "success";
     }
+    public Item getLastInsertedItem() {
+        return itemRepository.findLastInserted();
+    }
+
+    public Item findItemById(int id) {
+        return itemRepository.findById(id);
+    }
     public ArrayList<Item> getAllItem(){
         return itemRepository.getAllItems();
     }
