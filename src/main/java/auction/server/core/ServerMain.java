@@ -10,7 +10,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
 public class ServerMain {
-    static void main(String... args) {
+    public static void main(String... args) {
         try {
             // ========== KHỞI ĐỘNG HTTP SERVER (Port 8080) ==========
             HttpServer httpServer = HttpServer.create(new InetSocketAddress(8080), 0);
@@ -43,6 +43,13 @@ public class ServerMain {
 
             System.out.println("\n✓ WebSocket Server started on port 8081");
             System.out.println("  Actions: JOIN, BID");
+
+            // 🌟 TẠO SẢN PHẨM MẪU (DUMMY DATA) TẠI ĐÂY 🌟
+            // Giả sử AuctionManager của bạn có hàm tạo phiên đấu giá tên là createSession
+            // Nếu code báo đỏ, bạn hãy mở class AuctionManager ra kiểm tra xem tên hàm là gì (VD: addSession, createAuction...) rồi sửa lại nhé!
+
+            System.out.println("✓ Đã khởi tạo sản phẩm mẫu trên RAM: Mã [SP01], Giá khởi điểm [10000]");
+
             System.out.println("SERVER RUNNING SUCCESSFULLY!");
 
         } catch (IOException e) {

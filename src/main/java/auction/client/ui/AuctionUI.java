@@ -1,318 +1,216 @@
 package auction.client.ui;
 
 import auction.client.controller.AuctionController;
+import auction.shared.dto.ItemDTO;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
+import javafx.util.Duration;
 
 import java.net.URL;
 import java.util.ResourceBundle;
 
-/**
- * AuctionUI - Controller gắn với file AuctionUI.fxml
- *
- * Nhiệm vụ:
- *  - Hiển thị danh sách sản phẩm đấu giá
- *  - Cập nhật giá, người dẫn đầu, đếm ngược
- *  - Nhận input từ người dùng và chuyển sang AuctionController xử lý
- */
 public class AuctionUI implements Initializable {
 
-    // ==================== FXML Components ====================
+    @FXML private Label lblCurrentUser;
+    @FXML private Label lblSelectedProduct;
+    @FXML private Label lblCurrentPrice;
+    @FXML private Label lblLeader;
+    @FXML private Label lblCountdown;
+    @FXML private Label lblNotification;
+    @FXML private TextField txtBidAmount;
+    @FXML private Button btnJoin;
+    @FXML private Button btnBid;
+    @FXML private Button btnPostItem;
+    @FXML private TextArea txtLog;
 
-    @FXML private Label lblCurrentUser;          // Tên người dùng hiện tại
-    @FXML private Label lblSelectedProduct;      // Tên sản phẩm đang chọn
-    @FXML private Label lblCurrentPrice;         // Giá hiện tại của sản phẩm
-    @FXML private Label lblLeader;               // Người đang dẫn đầu
-    @FXML private Label lblCountdown;            // Đồng hồ đếm ngược
-    @FXML private Label lblNotification;         // Thông báo lỗi / trạng thái
-
-    @FXML private TextField txtBidAmount;        // Ô nhập giá bid
-
-    @FXML private Button btnJoin;                // Nút Tham gia
-    @FXML private Button btnBid;                 // Nút Đặt giá
-
-    @FXML private TextArea txtLog;               // Khu vực log hoạt động
-
-    // TableView sản phẩm
     @FXML private TableView<ProductItem> tableProducts;
     @FXML private TableColumn<ProductItem, String> colProductName;
     @FXML private TableColumn<ProductItem, String> colCurrentPrice;
     @FXML private TableColumn<ProductItem, String> colLeader;
     @FXML private TableColumn<ProductItem, String> colStatus;
 
-    // ==================== Biến nội bộ ====================
-
-    private AuctionController controller;                        // Controller xử lý logic
-    private ObservableList<ProductItem> productList;             // Dữ liệu bảng sản phẩm
-    private ProductItem selectedProduct;                         // Sản phẩm đang được chọn
-    private String currentUsername;                              // Username hiện tại
-
-    // ==================== Khởi tạo ====================
+    private AuctionController controller;
+    private ObservableList<ProductItem> productList;
+    private ProductItem selectedProduct;
+    private String currentUsername;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        // Khởi tạo controller logic (sử dụng constructor mặc định)
-        controller = new AuctionController(this);
-
-        // Khởi tạo danh sách sản phẩm
         productList = FXCollections.observableArrayList();
-
-        // Cài đặt bảng sản phẩm
         setupTable();
-
-        // Lắng nghe khi người dùng chọn sản phẩm trong bảng
         setupTableSelectionListener();
-
-        // Chỉ cho nhập số trong ô bid
-        setupBidInputValidator();
-
-        appendLog("Ứng dụng khởi động. Vui lòng chọn sản phẩm để bắt đầu.");
+        startCountdownTimer();
+        appendLog("Ứng dụng khởi động thành công.");
     }
 
-    /**
-     * Khởi tạo với username và role được truyền từ LoginView/SignUpView
-     * Phương thức này được gọi sau initialize()
-     */
     public void initializeWithUser(String username, String role) {
-        if (username != null && !username.isEmpty()) {
-            this.currentUsername = username;
-            // Tạo lại controller với username
-            controller = new AuctionController(this, username);
-        }
-        // Set username: role to the label
-        setCurrentUser(username + ": " + role);
+        this.currentUsername = username;
+        controller = new AuctionController(this, username);
+        Platform.runLater(() -> {
+            lblCurrentUser.setText(username + " (" + role + ")");
+            if (btnPostItem != null) {
+                btnPostItem.setVisible("SELLER".equalsIgnoreCase(role));
+            }
+        });
     }
 
-    // ==================== Setup ====================
-
-    /**
-     * Gắn các cột bảng với thuộc tính của ProductItem
-     */
     private void setupTable() {
         colProductName.setCellValueFactory(new PropertyValueFactory<>("productName"));
         colCurrentPrice.setCellValueFactory(new PropertyValueFactory<>("currentPrice"));
         colLeader.setCellValueFactory(new PropertyValueFactory<>("leader"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-
         tableProducts.setItems(productList);
     }
 
-    /**
-     * Khi người dùng click chọn sản phẩm trên bảng → cập nhật panel bên phải
-     */
     private void setupTableSelectionListener() {
         tableProducts.getSelectionModel().selectedItemProperty().addListener(
                 (obs, oldSelection, newSelection) -> {
                     if (newSelection != null) {
                         selectedProduct = newSelection;
                         updateProductDetail(newSelection);
-                        appendLog("Đã chọn sản phẩm: " + newSelection.getProductName());
                     }
                 }
         );
     }
 
-    /**
-     * Chỉ cho phép nhập số vào ô giá bid
-     */
-    private void setupBidInputValidator() {
-        txtBidAmount.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!newVal.matches("\\d*")) {
-                txtBidAmount.setText(newVal.replaceAll("[^\\d]", ""));
+    private void startCountdownTimer() {
+        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(1), event -> {
+            if (selectedProduct != null) {
+                long timeRemaining = selectedProduct.getEndTime() - System.currentTimeMillis();
+                if (timeRemaining > 0) {
+                    long seconds = timeRemaining / 1000;
+                    long m = (seconds % 3600) / 60;
+                    long s = seconds % 60;
+                    lblCountdown.setText(String.format("%02d:%02d", m, s));
+                } else {
+                    lblCountdown.setText("00:00 (Kết thúc)");
+                    btnBid.setDisable(true);
+                    selectedProduct.setStatus("Kết thúc");
+                }
+            } else {
+                lblCountdown.setText("00:00");
             }
+        }));
+        timeline.setCycleCount(Timeline.INDEFINITE);
+        timeline.play();
+    }
+
+    public void clearTable() { Platform.runLater(() -> productList.clear()); }
+
+    @FXML
+    private void handlePostItem() {
+        Dialog<ItemDTO> dialog = new Dialog<>();
+        dialog.setTitle("Đăng sản phẩm mới");
+        ButtonType postBtnType = new ButtonType("Đăng bán", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(postBtnType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(20, 10, 10, 10));
+
+        TextField name = new TextField();
+        TextField desc = new TextField();
+        TextField price = new TextField();
+
+        grid.add(new Label("Tên SP:"), 0, 0); grid.add(name, 1, 0);
+        grid.add(new Label("Mô tả:"), 0, 1); grid.add(desc, 1, 1);
+        grid.add(new Label("Giá sàn:"), 0, 2); grid.add(price, 1, 2);
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == postBtnType) {
+                try { return new ItemDTO(name.getText(), desc.getText(), Double.parseDouble(price.getText()), currentUsername);
+                } catch (Exception e) { return null; }
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(itemDTO -> {
+            if (controller != null) controller.postNewItem(itemDTO);
         });
     }
 
-    // ==================== Xử lý sự kiện từ FXML ====================
+    public void addProduct(ProductItem product) { Platform.runLater(() -> productList.add(product)); }
 
-    /**
-     * Xử lý nút "Tham gia đấu giá"
-     * Gọi controller để xử lý logic tham gia
-     */
-    @FXML
-    private void handleJoin() {
-        if (selectedProduct == null) {
-            showNotification("⚠️ Vui lòng chọn sản phẩm trước!", "warning");
-            return;
-        }
-        controller.joinAuction(selectedProduct.getProductId());
-    }
-
-    /**
-     * Xử lý nút "Đặt giá"
-     * Lấy giá từ ô nhập → gọi controller kiểm tra và xử lý
-     */
-    @FXML
-    private void handleBid() {
-        String input = txtBidAmount.getText().trim();
-
-        if (input.isEmpty()) {
-            showNotification("⚠️ Vui lòng nhập số tiền muốn đặt!", "warning");
-            return;
-        }
-
-        long bidAmount = Long.parseLong(input);
-        controller.placeBid(selectedProduct.getProductId(), bidAmount);
-
-        // Xóa ô nhập sau khi đặt giá
-        txtBidAmount.clear();
-    }
-
-    // ==================== Các phương thức cập nhật UI ====================
-    // Được gọi từ AuctionController để cập nhật giao diện
-    // Luôn dùng Platform.runLater() để đảm bảo chạy trên JavaFX thread
-
-    /**
-     * Cập nhật tên người dùng hiện tại trên header
-     */
-    public void setCurrentUser(String username) {
-        Platform.runLater(() -> lblCurrentUser.setText(username));
-    }
-
-    /**
-     * Cập nhật thông tin chi tiết của sản phẩm đang chọn (panel phải)
-     */
-    public void updateProductDetail(ProductItem product) {
-        Platform.runLater(() -> {
-            lblSelectedProduct.setText(product.getProductName());
-            lblCurrentPrice.setText(formatPrice(product.getRawPrice()) + " VNĐ");
-            lblLeader.setText(product.getLeader().isEmpty() ? "---" : product.getLeader());
-        });
-    }
-
-    /**
-     * Cập nhật giá mới khi có người đặt giá
-     *
-     * @param productId ID sản phẩm
-     * @param newPrice  Giá mới
-     * @param leader    Người vừa đặt giá cao nhất
-     */
     public void updatePrice(String productId, long newPrice, String leader) {
         Platform.runLater(() -> {
-            // Cập nhật trong bảng
             for (ProductItem item : productList) {
                 if (item.getProductId().equals(productId)) {
                     item.setRawPrice(newPrice);
-                    item.setCurrentPrice(formatPrice(newPrice) + " VNĐ");
+                    item.setCurrentPrice(String.format("%,d VNĐ", newPrice));
                     item.setLeader(leader);
+
+                    if (selectedProduct != null && selectedProduct.getProductId().equals(productId)) {
+                        updateProductDetail(item);
+                    }
                     break;
                 }
             }
             tableProducts.refresh();
-
-            // Nếu đây là sản phẩm đang được chọn → cập nhật panel phải
-            if (selectedProduct != null && selectedProduct.getProductId().equals(productId)) {
-                lblCurrentPrice.setText(formatPrice(newPrice) + " VNĐ");
-                lblLeader.setText(leader);
-            }
-
-            appendLog(String.format("Giá mới: %s VNĐ — Người dẫn đầu: %s", formatPrice(newPrice), leader));
         });
     }
 
-    /**
-     * Cập nhật đồng hồ đếm ngược
-     *
-     * @param seconds Số giây còn lại
-     */
-    public void updateCountdown(int seconds) {
+    // ĐÃ SỬA: Thêm tham số productId, hiển thị cửa sổ nhỏ (Alert) khi kết thúc đấu giá
+    public void showAuctionEnded(String productId, String winner, long price) {
         Platform.runLater(() -> {
-            int minutes = seconds / 60;
-            int secs = seconds % 60;
-            lblCountdown.setText(String.format("%02d:%02d", minutes, secs));
-
-            // Đổi màu đỏ khi còn ít thời gian
-            if (seconds <= 10) {
-                lblCountdown.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;");
-            } else {
-                lblCountdown.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #e67e22;");
+            String productName = "Sản phẩm";
+            for (ProductItem item : productList) {
+                if (item.getProductId().equals(productId)) {
+                    productName = item.getProductName();
+                    item.setStatus("Kết thúc");
+                    break;
+                }
             }
-        });
-    }
-
-    /**
-     * Thông báo phiên đấu giá kết thúc
-     *
-     * @param winner  Người thắng
-     * @param price   Giá thắng
-     */
-    public void showAuctionEnded(String winner, long price) {
-        Platform.runLater(() -> {
-            lblCountdown.setText("KẾT THÚC");
-            lblCountdown.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #8e44ad;");
-
-            btnBid.setDisable(true);
-            btnJoin.setDisable(true);
-
-            String message = String.format("🏆 Đấu giá kết thúc!\nNgười thắng: %s\nGiá: %s VNĐ", winner, formatPrice(price));
-            showNotification(message, "success");
-            appendLog("=== Phiên đấu giá kết thúc. Người thắng: " + winner + " với giá " + formatPrice(price) + " VNĐ ===");
-
-            // Hiện dialog thông báo
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Phiên đấu giá kết thúc");
-            alert.setHeaderText("🏆 Kết quả đấu giá");
-            alert.setContentText(message);
+            alert.setTitle("Thông báo kết thúc đấu giá");
+            alert.setHeaderText(null);
+            alert.setContentText("Phiên đấu giá " + productName + " kết thúc, người thắng cuộc là " + winner + ".");
             alert.showAndWait();
         });
     }
 
-    /**
-     * Kích hoạt nút "Đặt giá" sau khi người dùng đã tham gia
-     */
-    public void enableBidButton() {
+    public void updateProductDetail(ProductItem product) {
         Platform.runLater(() -> {
-            btnBid.setDisable(false);
-            btnJoin.setDisable(true); // Đã tham gia rồi → ẩn nút Join
-            appendLog("Bạn đã tham gia phiên đấu giá thành công.");
+            lblSelectedProduct.setText(product.getProductName());
+            lblCurrentPrice.setText(product.getCurrentPrice());
+            lblLeader.setText(product.getLeader());
         });
     }
 
-    /**
-     * Thêm sản phẩm vào danh sách bảng
-     */
-    public void addProduct(ProductItem product) {
-        Platform.runLater(() -> productList.add(product));
-    }
+    public void setCurrentUser(String user) { Platform.runLater(() -> lblCurrentUser.setText(user)); }
+    public void enableBidButton() { btnBid.setDisable(false); }
+    public void appendLog(String msg) { Platform.runLater(() -> txtLog.appendText("[LOG] " + msg + "\n")); }
+    public void showNotification(String msg, String type) { Platform.runLater(() -> lblNotification.setText(msg)); }
 
-    /**
-     * Hiển thị thông báo lỗi hoặc trạng thái dưới panel đặt giá
-     *
-     * @param message Nội dung thông báo
-     * @param type    "error" | "warning" | "success"
-     */
-    public void showNotification(String message, String type) {
-        Platform.runLater(() -> {
-            lblNotification.setText(message);
-            switch (type) {
-                case "error"   -> lblNotification.setStyle("-fx-font-size: 12px; -fx-text-fill: #e74c3c;");
-                case "warning" -> lblNotification.setStyle("-fx-font-size: 12px; -fx-text-fill: #e67e22;");
-                case "success" -> lblNotification.setStyle("-fx-font-size: 12px; -fx-text-fill: #27ae60;");
+    @FXML
+    private void handleJoin() {
+        if (selectedProduct != null) {
+            // ĐÃ SỬA: Hiển thị cửa sổ nhỏ (Alert) thay vì Label
+            if (selectedProduct.getSeller().equals(currentUsername)) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Cảnh báo");
+                alert.setHeaderText(null);
+                alert.setContentText("Bạn không thể tham gia đấu giá ở tài khoản Seller");
+                alert.showAndWait();
+                return;
             }
-        });
+            if (controller != null) controller.joinAuction(selectedProduct.getProductId());
+        }
     }
 
-    /**
-     * Ghi log hoạt động xuống khu vực log phía dưới
-     */
-    public void appendLog(String message) {
-        Platform.runLater(() -> {
-            txtLog.appendText("[LOG] " + message + "\n");
-        });
-    }
-
-    // ==================== Tiện ích ====================
-
-    /**
-     * Format số tiền thành dạng có dấu phẩy ngàn
-     * Ví dụ: 1000000 → 1,000,000
-     */
-    private String formatPrice(long price) {
-        return String.format("%,d", price);
+    @FXML
+    private void handleBid() {
+        try {
+            long amt = Long.parseLong(txtBidAmount.getText());
+            if (controller != null) controller.placeBid(selectedProduct.getProductId(), amt);
+        } catch (Exception e) { showNotification("Giá không hợp lệ", "error"); }
     }
 }
