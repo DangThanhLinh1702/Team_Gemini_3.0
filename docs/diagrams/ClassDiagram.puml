@@ -1,0 +1,114 @@
+@startuml ClassDiagram
+title Auction System - Class Diagram
+
+' Entity and User hierarchy
+abstract class Entity {
+}
+
+abstract class User extends Entity {
+    #username: String
+    #password: String
+    #role: String
+    #id: int
+    -{static} nextId: int
+    +getId(): int
+    +getUsername(): String
+    +getPassword(): String
+    +getRole(): String
+}
+
+class Bidder extends User {
+    -balance: double
+    +Bidder(username: String, password: String)
+}
+
+class Seller extends User {
+    +Seller(username: String, password: String)
+}
+
+class Admin extends User {
+}
+
+' Item and Auction models
+class Item extends Entity {
+    -id: String
+    -name: String
+    -description: String
+    -startingPrice: double
+    -sellerUserName: String
+    +Item(name: String, description: String, startingPrice: double, sellerUserName: String)
+    +getId(): String
+    +getName(): String
+    +getDescription(): String
+    +getStartingPrice(): double
+    +getSellerUserName(): String
+}
+
+class AuctionSession {
+    -idItem: String
+    -nameItem: String
+    -currentPrice: double
+    -highestBidder: String
+    -isFinished: boolean
+    +AuctionSession(idItem: String, nameItem: String, startingPrice: double)
+    +placeBid(username: String, newBidPrice: double): boolean
+    +finishAuction(): void
+    +getIdItem(): String
+    +getNameItem(): String
+    +getCurrentPrice(): double
+    +getHighestBidder(): String
+    +isFinished(): boolean
+}
+
+' Core server components
+class AuctionManager {
+    -{static} instance: AuctionManager
+    -activeSessions: Map<String, AuctionSession>
+    -scheduler: ScheduledExecutorService
+    -onAuctionFinishedCallback: Consumer<AuctionSession>
+    -AuctionManager()
+    +{static} getInstance(): AuctionManager
+    +createNewSession(id: String, name: String, startPrice: double, durationSeconds: long): void
+    +setOnAuctionEndCallback(callback: Consumer<AuctionSession>): void
+    +getSession(itemId: String): AuctionSession
+    +getAllSessions(): Map<String, AuctionSession>
+}
+
+class AuctionWebSocketServer extends WebSocketServer {
+    -gson: Gson
+    -auctionRooms: ConcurrentHashMap<String, Set<WebSocket>>
+    +AuctionWebSocketServer(port: int)
+    +onOpen(webSocket: WebSocket, clientHandshake: ClientHandshake): void
+    +onClose(webSocket: WebSocket, i: int, s: String, b: boolean): void
+    +onMessage(webSocket: WebSocket, message: String): void
+    +onError(webSocket: WebSocket, e: Exception): void
+    +onStart(): void
+    -joinRoom(conn: WebSocket, itemId: String, username: String): void
+    -handleBid(conn: WebSocket, itemId: String, username: String, price: long): void
+    -broadcastToRoom(itemId: String, messageJson: String): void
+    -sendError(webSocket: WebSocket, message: String): void
+}
+
+' DTO classes
+class WebSocketRequestDTO {
+    -token: String
+    -action: String
+    -itemId: String
+    -price: long
+    +getToken(): String
+    +getAction(): String
+    +getItemId(): String
+    +getPrice(): long
+}
+
+' Relationships
+AuctionManager "1" --> "*" AuctionSession : manages
+AuctionWebSocketServer --> AuctionManager : uses
+AuctionWebSocketServer --> AuctionSession : updates
+Item --> Seller : created by
+AuctionSession --> Item : tracks
+AuctionSession --> Bidder : places bid
+WebSocketRequestDTO --> AuctionWebSocketServer : input to
+
+@enduml
+
