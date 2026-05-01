@@ -13,6 +13,7 @@ import java.util.Map;
 public class AuctionController implements AuctionWebSocketClient.MessageListener {
     private final AuctionUI ui;
     private String currentUsername;
+    private String currentRole = "BIDDER";
     private AuctionWebSocketClient webSocketClient;
 
     public AuctionController(AuctionUI ui) { this(ui, "Guest"); }
@@ -34,7 +35,7 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
 
     public void postNewItem(ItemDTO itemDTO) {
         if (webSocketClient != null && webSocketClient.isOpen()) {
-            String token = JwtUtil.createToken(currentUsername, "SELLER");
+            String token = JwtUtil.createToken(currentUsername, currentRole);
             String json = String.format(
                     "{\"action\":\"POST_ITEM\", \"token\":\"%s\", \"name\":\"%s\", \"description\":\"%s\", \"price\":%f}",
                     token, itemDTO.getName(), itemDTO.getDescription(), itemDTO.getStartingPrice()
@@ -85,5 +86,9 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
 
     public void placeBid(String id, long a) {
         if (webSocketClient != null) webSocketClient.sendBid(id, a);
+    }
+
+    public void updateRole(String role) {
+        this.currentRole = role;
     }
 }

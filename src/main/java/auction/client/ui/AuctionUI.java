@@ -15,8 +15,13 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.util.Duration;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.URL;
 import java.util.ResourceBundle;
+import auction.shared.util.JwtUtil;
 
 public class AuctionUI implements Initializable {
 
@@ -30,6 +35,7 @@ public class AuctionUI implements Initializable {
     @FXML private Button btnJoin;
     @FXML private Button btnBid;
     @FXML private Button btnPostItem;
+    @FXML private Button btnChangeRole;
     @FXML private TextArea txtLog;
 
     @FXML private TableView<ProductItem> tableProducts;
@@ -42,6 +48,7 @@ public class AuctionUI implements Initializable {
     private ObservableList<ProductItem> productList;
     private ProductItem selectedProduct;
     private String currentUsername;
+    private String currentRole;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -54,11 +61,49 @@ public class AuctionUI implements Initializable {
 
     public void initializeWithUser(String username, String role) {
         this.currentUsername = username;
+        this.currentRole = role.toUpperCase();
         controller = new AuctionController(this, username);
+        controller.updateRole(this.currentRole);
         Platform.runLater(() -> {
-            lblCurrentUser.setText(username + " (" + role + ")");
+            lblCurrentUser.setText(username + " (" + currentRole + ")");
             if (btnPostItem != null) {
-                btnPostItem.setVisible("SELLER".equalsIgnoreCase(role));
+                btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
+            }
+        });
+    }
+
+    @FXML
+    private void handleChangeRole() {
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(currentRole, "BIDDER", "SELLER", "ADMIN");
+        dialog.setTitle("Đổi vai trò");
+        dialog.setHeaderText("Chọn vai trò mới");
+        dialog.setContentText("Vai trò:");
+        dialog.showAndWait().ifPresent(newRole -> {
+            if (newRole.equalsIgnoreCase(currentRole)) {
+                showNotification("Vai trò mới trùng vai trò hiện tại", "error");
+                return;
+            }
+            try {
+                String token = JwtUtil.createToken(currentUsername, currentRole);
+                String body = String.format("{\"role\":\"%s\"}", newRole.toUpperCase());
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:8080/change-role"))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + token)
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    currentRole = newRole.toUpperCase();
+                    lblCurrentUser.setText(currentUsername + " (" + currentRole + ")");
+                    btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
+                    controller.updateRole(currentRole);
+                    showNotification("Đổi vai trò thành công", "success");
+                } else {
+                    showNotification("Đổi vai trò thất bại: " + response.body(), "error");
+                }
+            } catch (Exception e) {
+                showNotification("Lỗi đổi vai trò: " + e.getMessage(), "error");
             }
         });
     }

@@ -178,4 +178,17 @@ public class UserRepository {
         }
         return null;
     }
+
+    public boolean updateUserRole(String username, String newRole) {
+        String query = "UPDATE users SET role = ? WHERE username = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, newRole);
+            preparedStatement.setString(2, username);
+            return preparedStatement.executeUpdate() > 0;
+        } catch (SQLException exception) {
+            exception.printStackTrace();
+            return false;
+        }
+    }
 }

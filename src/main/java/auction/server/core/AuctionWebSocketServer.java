@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuctionWebSocketServer extends WebSocketServer {
     private final Gson gson = new Gson();
     private final ConcurrentHashMap<Integer, Set<WebSocket>> auctionRooms = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Set<String>> roomBidders = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> joinedRoomByUser = new ConcurrentHashMap<>();
     private final ItemService itemService = new ItemService();
 
     public AuctionWebSocketServer(int port) {
@@ -125,6 +127,9 @@ public class AuctionWebSocketServer extends WebSocketServer {
     private void joinRoom(WebSocket conn, int itemId, String username) {
         auctionRooms.putIfAbsent(itemId, ConcurrentHashMap.newKeySet());
         auctionRooms.get(itemId).add(conn);
+        roomBidders.putIfAbsent(itemId, ConcurrentHashMap.newKeySet());
+        roomBidders.get(itemId).add(username);
+        joinedRoomByUser.put(username, itemId);
     }
 
     private void handleBid(WebSocket conn, int itemId, String username, long price) {
@@ -139,6 +144,12 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
         if (session == null) {
             sendError(conn, "Sản phẩm này chưa được tạo phiên đấu giá!");
+            return;
+        }
+
+        Set<String> bidders = roomBidders.getOrDefault(itemId, Collections.emptySet());
+        if (bidders.size() < 2) {
+            sendError(conn, "Phòng cần ít nhất 2 Bidder mới được đấu giá.");
             return;
         }
 
@@ -175,4 +186,17 @@ public class AuctionWebSocketServer extends WebSocketServer {
     @Override public void onClose(WebSocket ws, int i, String s, boolean b) {}
     @Override public void onError(WebSocket ws, Exception e) {}
     @Override public void onStart() { System.out.println("Server started on 8081"); }
+
+    public boolean isUserInActiveAuction(String username) {
+        Integer joinedItem = joinedRoomByUser.get(username);
+        if (joinedItem != null) {
+            AuctionSession s = AuctionManager.getInstance().getSession(joinedItem);
+            if (s != null && !s.isFinished()) return true;
+        }
+        for (AuctionSession session : AuctionManager.getInstance().getAllSessions().values()) {
+            Item item = itemService.findItemById(session.getItemId());
+            if (item != null && username.equals(item.getSellerUserName()) && !session.isFinished()) return true;
+        }
+        return false;
+    }
 }

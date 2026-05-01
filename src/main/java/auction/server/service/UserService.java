@@ -80,4 +80,21 @@ public class UserService {
                 .findFirst()
                 .orElse(null);
     }
+
+    public String changeRole(String username, String newRole) {
+        if (username == null || username.trim().isEmpty()) return "Username không hợp lệ";
+        if (newRole == null || newRole.trim().isEmpty()) return "Role không hợp lệ";
+
+        String normalized = newRole.toUpperCase();
+        if (!normalized.equals("BIDDER") && !normalized.equals("SELLER") && !normalized.equals("ADMIN")) {
+            return "Role phải là BIDDER, SELLER hoặc ADMIN";
+        }
+
+        User user = getUserByUsername(username);
+        if (user == null) return "Người dùng không tồn tại";
+        if (normalized.equalsIgnoreCase(user.getRole())) return "Role mới trùng role hiện tại";
+
+        boolean ok = userRepository.updateUserRole(username, normalized);
+        return ok ? "success" : "Không thể cập nhật role";
+    }
 }

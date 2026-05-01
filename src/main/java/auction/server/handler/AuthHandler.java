@@ -1,6 +1,7 @@
 package auction.server.handler;
 
 import auction.server.model.User;
+import auction.server.core.ServerMain;
 import auction.server.service.UserService;
 import auction.server.util.HttpServerUtil;
 import auction.shared.dto.ResponseDTO;
@@ -43,6 +44,11 @@ public class AuthHandler implements HttpHandler {
 
             if ("GET".equals(httpMethod) && "/me".equals(path)) {
                 handleGetMe(exchange);
+                return;
+            }
+
+            if ("POST".equals(httpMethod) && "/change-role".equals(path)) {
+                handleChangeRole(exchange);
                 return;
             }
 
@@ -103,6 +109,34 @@ public class AuthHandler implements HttpHandler {
             }
         } else {
             HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Không có quyền truy cập"));
+        }
+    }
+
+    private void handleChangeRole(HttpExchange exchange) throws IOException {
+        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Không có quyền truy cập"));
+            return;
+        }
+        String token = authHeader.substring(7);
+        DecodedJWT jwt = JwtUtil.verifyToken(token);
+        if (jwt == null) {
+            HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Token không hợp lệ"));
+            return;
+        }
+        String username = jwt.getSubject();
+        if (ServerMain.getWsServerRef() != null && ServerMain.getWsServerRef().isUserInActiveAuction(username)) {
+            HttpResponseUtil.sendHttpResponse(exchange, 409, new ResponseDTO("fail", "Không thể đổi vai trò trong thời gian đấu giá"));
+            return;
+        }
+
+        String jsonBody = HttpServerUtil.readRequestBody(exchange);
+        UserDTO userDTO = gson.fromJson(jsonBody, UserDTO.class);
+        String result = userService.changeRole(username, userDTO.getRole());
+        if ("success".equals(result)) {
+            HttpResponseUtil.sendHttpResponse(exchange, 200, new ResponseDTO("success", "Đổi vai trò thành công"));
+        } else {
+            HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", result));
         }
     }
 }

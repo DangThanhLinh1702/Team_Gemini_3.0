@@ -25,6 +25,10 @@
                     visible="false"
                     managed="${btnPostItem.visible}"
                     style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
+            <Button fx:id="btnChangeRole"
+                    text="🔄 Đổi vai trò"
+                    onAction="#handleChangeRole"
+                    style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
 
             <Label fx:id="lblCurrentUser"
                    style="-fx-text-fill: #1abc9c; -fx-font-size: 13px; -fx-font-weight: bold;"/>

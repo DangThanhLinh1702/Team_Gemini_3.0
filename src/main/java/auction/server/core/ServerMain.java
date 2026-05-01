@@ -10,6 +10,12 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
 public class ServerMain {
+    private static AuctionWebSocketServer wsServerRef;
+
+    public static AuctionWebSocketServer getWsServerRef() {
+        return wsServerRef;
+    }
+
     public static void main(String... args) {
         try {
             // ========== KHỞI ĐỘNG HTTP SERVER (Port 8080) ==========
@@ -22,6 +28,7 @@ public class ServerMain {
             httpServer.createContext("/login", authHandler);
             httpServer.createContext("/register", authHandler);
             httpServer.createContext("/users", authHandler);
+            httpServer.createContext("/change-role", authHandler);
             httpServer.createContext("/items", itemHandler);         // GET + POST
             httpServer.createContext("/auctions", itemListHandler);  // GET
 
@@ -39,6 +46,7 @@ public class ServerMain {
 
             // ========== KHỞI ĐỘNG WEBSOCKET SERVER (Port 8081) ==========
             AuctionWebSocketServer wsServer = new AuctionWebSocketServer(8081);
+            wsServerRef = wsServer;
             wsServer.start();
 
             System.out.println("\n✓ WebSocket Server started on port 8081");
