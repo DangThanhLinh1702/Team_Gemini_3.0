@@ -1,0 +1,88 @@
+@startuml UseCaseDiagram
+title Auction System - Use Case Diagram
+
+left to right direction
+actor Bidder
+actor Seller
+actor Admin
+actor System as "System\n(Auto-triggered)"
+
+rectangle "Auction System" {
+
+    (Register Account) as UC1
+    (Login) as UC2
+    (Browse Available Items) as UC3
+    (View Item Details) as UC4
+    (Join Auction Room) as UC5
+    (Place Bid) as UC6
+    (View Bid History) as UC7
+    (Receive Bid Notification) as UC8
+    (Get Auction Results) as UC9
+
+    (Create Item) as UC10
+    (Set Starting Price) as UC11
+    (Monitor Item Auction) as UC12
+    (View Winner) as UC13
+
+    (Manage Users) as UC14
+    (View All Auctions) as UC15
+    (Manage System Settings) as UC16
+
+    (Start Auction) as UC17
+    (Schedule End Time) as UC18
+    (End Auction) as UC19
+    (Calculate Winner) as UC20
+    (Broadcast Result) as UC21
+
+    ' Bidder use cases
+    Bidder --> UC1
+    Bidder --> UC2
+    Bidder --> UC3
+    Bidder --> UC4
+    Bidder --> UC5
+    Bidder --> UC6
+    Bidder --> UC7
+    Bidder --> UC9
+
+    ' Seller use cases
+    Seller --> UC1
+    Seller --> UC2
+    Seller --> UC10
+    Seller --> UC11
+    Seller --> UC12
+    Seller --> UC13
+
+    ' Admin use cases
+    Admin --> UC2
+    Admin --> UC14
+    Admin --> UC15
+    Admin --> UC16
+
+    ' System triggered use cases
+    System --> UC17
+    System --> UC18
+    System --> UC19
+    System --> UC20
+    System --> UC21
+
+    ' Include relationships
+    UC1 .up.> UC2 : <<include>>
+    UC3 .> UC4 : <<include>>
+    UC5 .> UC3 : <<include>>
+    UC6 .> UC5 : <<include>>
+    UC6 .> UC9 : <<extend>>
+    UC19 .> UC20 : <<include>>
+    UC20 .> UC21 : <<include>>
+    UC12 .> UC3 : <<include>>
+    UC17 .> UC18 : <<include>>
+
+    ' Data dependencies
+    UC5 -- UC8 : updates
+    UC6 -- UC8 : triggers
+    UC20 -- UC13 : produces
+    UC21 -- UC8 : sends
+    UC21 -- UC9 : provides
+}
+
+@enduml
+

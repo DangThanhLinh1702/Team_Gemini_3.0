@@ -1,0 +1,64 @@
+@startuml SequenceDiagram
+title Auction System - Sequence Diagram: Bidding Process
+
+actor Bidder as B
+participant "Client UI" as ClientUI
+participant "WebSocket\nServer" as WebSocketServer
+participant "Auction\nManager" as AuctionManager
+participant "Auction\nSession" as AuctionSession
+
+== Login Phase ==
+B ->> ClientUI: Enter credentials
+ClientUI ->> WebSocketServer: Login request
+WebSocketServer ->> WebSocketServer: Verify credentials\n& Generate JWT
+WebSocketServer ->> ClientUI: Return JWT token
+
+== Browse Items Phase ==
+B ->> ClientUI: View available items
+ClientUI ->> AuctionManager: Get all auction sessions
+AuctionManager ->> ClientUI: Return active auctions
+ClientUI ->> B: Display items with current price
+
+== Join Auction Room ==
+B ->> ClientUI: Click on item to bid
+ClientUI ->> WebSocketServer: JOIN action + itemId + JWT
+WebSocketServer ->> WebSocketServer: Verify JWT token
+WebSocketServer ->> AuctionManager: Get auction session
+AuctionManager ->> AuctionSession: Get current state
+AuctionSession ->> AuctionManager: Return session details
+AuctionManager ->> WebSocketServer: Return session
+WebSocketServer ->> ClientUI: Show current bids & price
+
+== Placing Bid ==
+B ->> ClientUI: Enter bid amount
+ClientUI ->> WebSocketServer: BID action + itemId + price + JWT
+WebSocketServer ->> WebSocketServer: Verify token & validate role
+WebSocketServer ->> AuctionManager: Get session for item
+AuctionManager ->> AuctionSession: Place bid
+AuctionSession ->> AuctionSession: placeBid(username, price)
+AuctionSession ->> AuctionManager: Return success/failure
+
+alt Bid Successful
+    AuctionManager ->> WebSocketServer: Return true
+    WebSocketServer ->> WebSocketServer: Build response with\nnew price data
+    WebSocketServer ->> WebSocketServer: Broadcast to all\nclients in room
+    WebSocketServer ->> ClientUI: Broadcast update
+    ClientUI ->> B: Show new highest bid
+else Bid Failed (Price too low or auction ended)
+    AuctionManager ->> WebSocketServer: Return false
+    WebSocketServer ->> ClientUI: Send error message
+    ClientUI ->> B: Show error
+end
+
+== Auction Ends (Auto-triggered after duration) ==
+AuctionManager ->> AuctionSession: finishAuction()
+AuctionSession ->> AuctionManager: isFinished = true
+AuctionManager ->> AuctionManager: Execute callback
+AuctionManager ->> WebSocketServer: Call onAuctionEnd callback
+WebSocketServer ->> WebSocketServer: Build AUCTION_ENDED\nresponse with winner
+WebSocketServer ->> WebSocketServer: Broadcast to room
+WebSocketServer ->> ClientUI: Announce winner\nand final price
+ClientUI ->> B: Display auction results
+
+@enduml
+
