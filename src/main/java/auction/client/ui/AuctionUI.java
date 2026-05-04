@@ -30,6 +30,7 @@ public class AuctionUI implements Initializable {
     @FXML private Button btnJoin;
     @FXML private Button btnBid;
     @FXML private Button btnPostItem;
+    @FXML private Button btnChangeRole;
     @FXML private TextArea txtLog;
 
     @FXML private TableView<ProductItem> tableProducts;
@@ -43,6 +44,9 @@ public class AuctionUI implements Initializable {
     private ProductItem selectedProduct;
     private String currentUsername;
 
+    // ĐÃ THÊM: Biến lưu trữ Role hiện tại của tài khoản
+    private String currentRole = "BIDDER";
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         productList = FXCollections.observableArrayList();
@@ -54,13 +58,60 @@ public class AuctionUI implements Initializable {
 
     public void initializeWithUser(String username, String role) {
         this.currentUsername = username;
+        // Cập nhật role ban đầu khi đăng nhập
+        this.currentRole = (role != null && !role.trim().isEmpty()) ? role.toUpperCase() : "BIDDER";
         controller = new AuctionController(this, username);
+
+        // Cập nhật giao diện theo Role
+        applyRoleUI();
+    }
+
+    // ĐÃ THÊM: Hàm xử lý thay đổi trạng thái các nút bấm tùy thuộc vào Role
+    private void applyRoleUI() {
         Platform.runLater(() -> {
-            lblCurrentUser.setText(username + " (" + role + ")");
-            if (btnPostItem != null) {
-                btnPostItem.setVisible("SELLER".equalsIgnoreCase(role));
+            // Cập nhật tên hiển thị ở góc trên bên phải
+            if (lblCurrentUser != null) {
+                lblCurrentUser.setText(currentUsername + " (" + currentRole + ")");
+            }
+
+            if ("SELLER".equalsIgnoreCase(currentRole)) {
+                // Nếu là SELLER: Mở nút Đăng Bán, Khóa các chức năng mua hàng
+                if (btnPostItem != null) btnPostItem.setVisible(true);
+                if (btnJoin != null) btnJoin.setDisable(true);
+                if (btnBid != null) btnBid.setDisable(true);
+                if (txtBidAmount != null) txtBidAmount.setDisable(true);
+            } else {
+                // Nếu là BIDDER: Ẩn nút Đăng Bán, Mở khóa chức năng mua hàng
+                if (btnPostItem != null) btnPostItem.setVisible(false);
+                if (btnJoin != null) btnJoin.setDisable(false);
+                if (txtBidAmount != null) txtBidAmount.setDisable(false);
+                // Nút Đặt giá (btnBid) thường chỉ mở SAU KHI bấm nút "Tham gia",
+                // nên mặc định khi đổi role sang Bidder vẫn disable nó cho an toàn
+                if (btnBid != null) btnBid.setDisable(true);
             }
         });
+    }
+
+    // ĐÃ SỬA: Đổi role ngay lập tức khi bấm nút, không cần chọn sản phẩm
+    @FXML
+    private void handleChangeRole() {
+        // Đảo ngược vai trò
+        if ("BIDDER".equalsIgnoreCase(currentRole)) {
+            currentRole = "SELLER";
+        } else {
+            currentRole = "BIDDER";
+        }
+
+        // Áp dụng thay đổi lên giao diện ngay lập tức
+        applyRoleUI();
+        appendLog("Đã chuyển sang chế độ: " + currentRole);
+
+        // Hiển thị thông báo nhỏ cho người dùng biết
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Đổi vai trò thành công");
+        alert.setHeaderText(null);
+        alert.setContentText("Bạn hiện đang hoạt động với tư cách là " + currentRole + "!");
+        alert.showAndWait();
     }
 
     private void setupTable() {
@@ -93,7 +144,7 @@ public class AuctionUI implements Initializable {
                     lblCountdown.setText(String.format("%02d:%02d", m, s));
                 } else {
                     lblCountdown.setText("00:00 (Kết thúc)");
-                    btnBid.setDisable(true);
+                    if (btnBid != null) btnBid.setDisable(true);
                     selectedProduct.setStatus("Kết thúc");
                 }
             } else {
@@ -158,7 +209,6 @@ public class AuctionUI implements Initializable {
         });
     }
 
-    // ĐÃ SỬA: Thêm tham số productId, hiển thị cửa sổ nhỏ (Alert) khi kết thúc đấu giá
     public void showAuctionEnded(String productId, String winner, long price) {
         Platform.runLater(() -> {
             String productName = "Sản phẩm";
@@ -193,16 +243,18 @@ public class AuctionUI implements Initializable {
     @FXML
     private void handleJoin() {
         if (selectedProduct != null) {
-            // ĐÃ SỬA: Hiển thị cửa sổ nhỏ (Alert) thay vì Label
+            // Kiểm tra xem chính mình có phải là người bán không
             if (selectedProduct.getSeller().equals(currentUsername)) {
                 Alert alert = new Alert(Alert.AlertType.WARNING);
                 alert.setTitle("Cảnh báo");
                 alert.setHeaderText(null);
-                alert.setContentText("Bạn không thể tham gia đấu giá ở tài khoản Seller");
+                alert.setContentText("Bạn không thể tham gia đấu giá sản phẩm do chính mình đăng bán!");
                 alert.showAndWait();
                 return;
             }
             if (controller != null) controller.joinAuction(selectedProduct.getProductId());
+        } else {
+            showNotification("Vui lòng chọn một sản phẩm để tham gia!", "error");
         }
     }
 
@@ -211,6 +263,6 @@ public class AuctionUI implements Initializable {
         try {
             long amt = Long.parseLong(txtBidAmount.getText());
             if (controller != null) controller.placeBid(selectedProduct.getProductId(), amt);
-        } catch (Exception e) { showNotification("Giá không hợp lệ", "error"); }
+        } catch (Exception e) { showNotification("Giá không hợp lệ. Vui lòng nhập số!", "error"); }
     }
 }

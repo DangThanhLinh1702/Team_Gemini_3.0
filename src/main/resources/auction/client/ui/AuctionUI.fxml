@@ -124,8 +124,13 @@
                                    -fx-font-size: 13px; -fx-font-weight: bold;
                                    -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
                                    -fx-cursor: hand;"/>
-                </VBox>
 
+                    <Button fx:id="btnChangeRole"
+                            text="🔄 Đổi Vai Trò"
+                            maxWidth="Infinity"
+                            onAction="#handleChangeRole"
+                            style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                </VBox>
                 <Separator/>
 
                 <Label fx:id="lblNotification"
