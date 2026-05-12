@@ -94,7 +94,9 @@ public class AuctionWebSocketServer extends WebSocketServer {
                         int realId = newItem.getId();
 
                         // Tạo phiên đấu giá mới với ID int
-                        AuctionManager.getInstance().createNewSession(realId, newItem.getSellerId(), request.getPrice(), 120);
+                        // Chuyển sellerUserName thành sellerId bằng hashCode
+                        int sellerId = newItem.getSellerUserName().hashCode();
+                        AuctionManager.getInstance().createNewSession(realId, sellerId, request.getPrice(), 120);
 
                         Map<String, Object> data = new HashMap<>();
                         data.put("type", "NEW_ITEM_ADDED");

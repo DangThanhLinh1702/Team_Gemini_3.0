@@ -5,6 +5,8 @@ import auction.client.ui.AuctionUI;
 import auction.client.ui.ProductItem;
 import auction.shared.dto.ItemDTO;
 import auction.shared.util.JwtUtil;
+import auction.database.AuctionService;
+import auction.shared.model.AuctionItem;
 import javafx.application.Platform;
 import java.net.URI;
 import java.util.List;
@@ -14,13 +16,16 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
     private final AuctionUI ui;
     private String currentUsername;
     private AuctionWebSocketClient webSocketClient;
+    private final AuctionService auctionService;
 
     public AuctionController(AuctionUI ui) { this(ui, "Guest"); }
 
     public AuctionController(AuctionUI ui, String username) {
         this.ui = ui;
         this.currentUsername = username;
+        this.auctionService = new AuctionService();
         connectToServer();
+        syncDataFromDatabase();
     }
 
     private void connectToServer() {
@@ -85,5 +90,58 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
 
     public void placeBid(String id, long a) {
         if (webSocketClient != null) webSocketClient.sendBid(id, a);
+    }
+    
+    // Đồng bộ dữ liệu từ database lên UI
+    public void syncDataFromDatabase() {
+        new Thread(() -> {
+            try {
+                auctionService.syncDataToUI(ui);
+                auctionService.checkAndUpdateExpiredAuctions();
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    ui.showNotification("Lỗi đồng bộ dữ liệu: " + e.getMessage(), "error");
+                    ui.appendLog("Lỗi khi đồng bộ dữ liệu từ database: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+    
+    // Làm mới dữ liệu từ database
+    public void refreshData() {
+        syncDataFromDatabase();
+    }
+    
+    // Thêm sản phẩm mới vào database
+    public void addNewItemToDatabase(ItemDTO itemDTO) {
+        new Thread(() -> {
+            try {
+                AuctionItem auctionItem = new AuctionItem(
+                    null,
+                    itemDTO.getName(),
+                    itemDTO.getDescription(),
+                    (long) itemDTO.getStartingPrice(),
+                    itemDTO.getSellerUsername(),
+                    java.time.LocalDateTime.now().plusMinutes(120) // 2 phút
+                );
+                
+                boolean success = auctionService.addAuctionItem(auctionItem);
+                
+                Platform.runLater(() -> {
+                    if (success) {
+                        ui.showNotification("Đăng sản phẩm thành công", "success");
+                        ui.appendLog("Đã đăng sản phẩm: " + itemDTO.getName());
+                        syncDataFromDatabase(); // Làm mới UI
+                    } else {
+                        ui.showNotification("Đăng sản phẩm thất bại", "error");
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    ui.showNotification("Lỗi: " + e.getMessage(), "error");
+                    ui.appendLog("Lỗi khi đăng sản phẩm: " + e.getMessage());
+                });
+            }
+        }).start();
     }
 }
