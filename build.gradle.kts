@@ -21,6 +21,13 @@ application {
     mainClass.set("auction.client.AppLauncher")
 }
 
+tasks.register<JavaExec>("testDatabase") {
+    mainClass.set("auction.database.DatabaseConnection")
+    description = "Test database connection"
+    group = "verification"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.auth0:java-jwt:4.5.1")

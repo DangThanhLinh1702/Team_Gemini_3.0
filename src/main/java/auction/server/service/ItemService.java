@@ -23,6 +23,7 @@ public class ItemService {
         return itemRepository.findById(id);
     }
     public ArrayList<Item> getAllItem(){
-        return itemRepository.getAllItems();
+        // Ưu tiên lấy từ database để đảm bảo dữ liệu mới nhất
+        return itemRepository.getAllItemsFromDatabase();
     }
 }

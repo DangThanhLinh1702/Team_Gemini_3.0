@@ -20,13 +20,18 @@ public class ItemRepository {
         System.out.println("Đã thêm sản phẩm vào bộ nhớ: " + item.getName());
 
         // Lưu vào Database
-        String query = "INSERT INTO items (name, description, starting_price) VALUES (?, ?, ?)";
+        String query = "INSERT INTO auction_items (id, name, description, starting_price, current_price, seller_username, end_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(query)) {
 
-            preparedStatement.setString(1, item.getName());
-            preparedStatement.setString(2, item.getDescription());
-            preparedStatement.setDouble(3, item.getStartingPrice());
+            preparedStatement.setString(1, java.util.UUID.randomUUID().toString());
+            preparedStatement.setString(2, item.getName());
+            preparedStatement.setString(3, item.getDescription());
+            preparedStatement.setDouble(4, item.getStartingPrice());
+            preparedStatement.setDouble(5, item.getStartingPrice()); // current_price = starting_price
+            preparedStatement.setString(6, item.getSellerUserName());
+            preparedStatement.setTimestamp(7, new java.sql.Timestamp(System.currentTimeMillis() + 7200000)); // 2 giờ
+            preparedStatement.setString(8, "ACTIVE");
 
             preparedStatement.executeUpdate();
             System.out.println("Đã thêm sản phẩm vào database: " + item.getName());
@@ -36,11 +41,11 @@ public class ItemRepository {
         }
     }
     public Item findById(int id) {
-        String query = "SELECT * FROM items WHERE item_id = ?";
+        String query = "SELECT * FROM auction_items WHERE id = ?";
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(query)) {
 
-            preparedStatement.setInt(1, id);
+            preparedStatement.setString(1, String.valueOf(id));
             ResultSet resultSet = preparedStatement.executeQuery();
 
             if (resultSet.next()) {
@@ -50,7 +55,7 @@ public class ItemRepository {
                         resultSet.getDouble("starting_price"),
                         resultSet.getString("seller_username")
                 );
-                itemObject.setId(resultSet.getInt("item_id"));
+                itemObject.setId(resultSet.getString("id").hashCode());
                 return itemObject;
             }
 
@@ -65,7 +70,7 @@ public class ItemRepository {
         return allItems;
     }
     public Item findLastInserted() {
-        String query = "SELECT * FROM items ORDER BY item_id DESC LIMIT 1";
+        String query = "SELECT * FROM auction_items ORDER BY start_time DESC LIMIT 1";
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement ps = connection.prepareStatement(query)) {
 
@@ -77,7 +82,7 @@ public class ItemRepository {
                         rs.getDouble("starting_price"),
                         rs.getString("seller_username")
                 );
-                item.setId(rs.getInt("item_id"));
+                item.setId(rs.getString("id").hashCode());
                 // nếu có seller_id trong bảng thì thêm:
                 // item.setSellerId(rs.getInt("seller_id"));
                 return item;
@@ -93,7 +98,7 @@ public class ItemRepository {
     // Lấy tất cả item từ Database
     public ArrayList<Item> getAllItemsFromDatabase() {
         ArrayList<Item> items = new ArrayList<>();
-        String query = "SELECT * FROM items";
+        String query = "SELECT * FROM auction_items";
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(query);
              ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -105,7 +110,7 @@ public class ItemRepository {
                         resultSet.getDouble("starting_price"),
                         resultSet.getString("seller_username") // thêm cột seller_username
                 );
-                itemObject.setId(resultSet.getInt("item_id")); // nếu Item có setId
+                itemObject.setId(resultSet.getString("id").hashCode()); // nếu Item có setId
                 items.add(itemObject);
             }
 

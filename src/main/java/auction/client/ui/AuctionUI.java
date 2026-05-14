@@ -30,6 +30,7 @@ public class AuctionUI implements Initializable {
     @FXML private Button btnJoin;
     @FXML private Button btnBid;
     @FXML private Button btnPostItem;
+    @FXML private Button btnRefresh;
     @FXML private TextArea txtLog;
 
     @FXML private TableView<ProductItem> tableProducts;
@@ -134,8 +135,22 @@ public class AuctionUI implements Initializable {
         });
 
         dialog.showAndWait().ifPresent(itemDTO -> {
-            if (controller != null) controller.postNewItem(itemDTO);
+            if (controller != null) {
+                // Sử dụng method mới để lưu vào database
+                controller.addNewItemToDatabase(itemDTO);
+                // Giữ nguyên method cũ để gửi qua WebSocket
+                controller.postNewItem(itemDTO);
+            }
         });
+    }
+    
+    // Handler cho nút làm mới dữ liệu
+    @FXML
+    private void handleRefresh() {
+        if (controller != null) {
+            controller.refreshData();
+            showNotification("Đang làm mới dữ liệu...", "info");
+        }
     }
 
     public void addProduct(ProductItem product) { Platform.runLater(() -> productList.add(product)); }
