@@ -136,8 +136,6 @@ public class AuctionUI implements Initializable {
 
         dialog.showAndWait().ifPresent(itemDTO -> {
             if (controller != null) {
-                // Sử dụng method mới để lưu vào database
-                controller.addNewItemToDatabase(itemDTO);
                 // Giữ nguyên method cũ để gửi qua WebSocket
                 controller.postNewItem(itemDTO);
             }

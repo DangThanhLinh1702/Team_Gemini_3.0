@@ -40,12 +40,13 @@ public class AuctionWebSocketClient extends WebSocketClient {
                     List<Map<String, Object>> items = (List<Map<String, Object>>) data.get("items");
                     messageListener.onInitialItemsReceived(items);
                 } else if ("NEW_ITEM_ADDED".equals(type)) {
-                    messageListener.onNewItemAdded((String)data.get("itemId"), (String)data.get("name"), ((Number)data.get("price")).doubleValue(), (String)data.get("seller"));
+                    String itemId = String.valueOf(((Number) data.get("itemId")).intValue());
+                    messageListener.onNewItemAdded(itemId, (String)data.get("name"), ((Number)data.get("price")).doubleValue(), (String)data.get("seller"));
                 } else if ("UPDATE_PRICE".equals(type)) {
-                    messageListener.onPriceUpdated((String)data.get("itemId"), (String)data.get("user"), ((Number)data.get("price")).doubleValue());
+                    messageListener.onPriceUpdated(String.valueOf(((Number)data.get("itemId")).intValue()), (String)data.get("user"), ((Number)data.get("price")).doubleValue());
                 } else if ("AUCTION_ENDED".equals(type)) {
                     // ĐÃ THÊM: Xử lý sự kiện kết thúc phiên đấu giá
-                    String itemId = (String) data.get("itemId");
+                    String itemId = String.valueOf(((Number) data.get("itemId")).intValue());
                     String winner = (String) data.get("winner");
                     double finalPrice = ((Number) data.get("price")).doubleValue();
                     messageListener.onAuctionEnded(itemId, winner, finalPrice);
