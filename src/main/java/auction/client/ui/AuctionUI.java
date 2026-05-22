@@ -30,7 +30,8 @@ public class AuctionUI implements Initializable {
     @FXML private Button btnJoin;
     @FXML private Button btnBid;
     @FXML private Button btnPostItem;
-    @FXML private Button btnRefresh;
+    @FXML private Button btnRefresh; // Nút làm mới
+    @FXML private Button btnChangeRole; // ĐÃ SỬA: Trùng khớp hoàn toàn với fx:id trong FXML
     @FXML private TextArea txtLog;
 
     @FXML private TableView<ProductItem> tableProducts;
@@ -43,6 +44,7 @@ public class AuctionUI implements Initializable {
     private ObservableList<ProductItem> productList;
     private ProductItem selectedProduct;
     private String currentUsername;
+    private String currentRole;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -55,11 +57,41 @@ public class AuctionUI implements Initializable {
 
     public void initializeWithUser(String username, String role) {
         this.currentUsername = username;
+        this.currentRole = role;
         controller = new AuctionController(this, username);
+        updateRoleUI();
+
+        // Tự động tải danh sách sản phẩm từ database lên UI ngay khi vừa đăng nhập thành công
+        Platform.runLater(this::handleRefresh);
+    }
+
+    @FXML
+    private void handleToggleRole() {
+        if (currentRole == null) return;
+
+        if ("SELLER".equalsIgnoreCase(currentRole)) {
+            currentRole = "BIDDER";
+        } else {
+            currentRole = "SELLER";
+        }
+
+        updateRoleUI();
+        appendLog("Đã chủ động đổi vai trò sang: " + currentRole);
+        showNotification("Đã chuyển sang quyền: " + currentRole, "info");
+    }
+
+    private void updateRoleUI() {
         Platform.runLater(() -> {
-            lblCurrentUser.setText(username + " (" + role + ")");
+            lblCurrentUser.setText(currentUsername + " (" + currentRole + ")");
+
             if (btnPostItem != null) {
-                btnPostItem.setVisible("SELLER".equalsIgnoreCase(role));
+                btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
+            }
+
+            if ("SELLER".equalsIgnoreCase(currentRole)) {
+                btnBid.setDisable(true);
+            } else {
+                btnBid.setDisable(false);
             }
         });
     }
@@ -136,29 +168,27 @@ public class AuctionUI implements Initializable {
 
         dialog.showAndWait().ifPresent(itemDTO -> {
             if (controller != null) {
-                // Giữ nguyên method cũ để gửi qua WebSocket
                 controller.postNewItem(itemDTO);
             }
         });
     }
-    
-    // Handler cho nút làm mới dữ liệu
+
     @FXML
-    private void handleRefresh() {
+    public void handleRefresh() {
         if (controller != null) {
             controller.refreshData();
-            showNotification("Đang làm mới dữ liệu...", "info");
+            showNotification("Đang làm mới danh sách...", "info");
         }
     }
 
     public void addProduct(ProductItem product) { Platform.runLater(() -> productList.add(product)); }
 
-    public void updatePrice(String productId, long newPrice, String leader) {
+    public void updatePrice(String productId, double newPrice, String leader) {
         Platform.runLater(() -> {
             for (ProductItem item : productList) {
                 if (item.getProductId().equals(productId)) {
-                    item.setRawPrice(newPrice);
-                    item.setCurrentPrice(String.format("%,d VNĐ", newPrice));
+                    item.setRawPrice((long) newPrice);
+                    item.setCurrentPrice(String.format("%,.0f VNĐ", newPrice));
                     item.setLeader(leader);
 
                     if (selectedProduct != null && selectedProduct.getProductId().equals(productId)) {
@@ -171,8 +201,7 @@ public class AuctionUI implements Initializable {
         });
     }
 
-    // ĐÃ SỬA: Thêm tham số productId, hiển thị cửa sổ nhỏ (Alert) khi kết thúc đấu giá
-    public void showAuctionEnded(String productId, String winner, long price) {
+    public void showAuctionEnded(String productId, String winner, double price) {
         Platform.runLater(() -> {
             String productName = "Sản phẩm";
             for (ProductItem item : productList) {
@@ -206,12 +235,11 @@ public class AuctionUI implements Initializable {
     @FXML
     private void handleJoin() {
         if (selectedProduct != null) {
-            // ĐÃ SỬA: Hiển thị cửa sổ nhỏ (Alert) thay vì Label
-            if (selectedProduct.getSeller().equals(currentUsername)) {
+            if (selectedProduct.getSeller().equals(currentUsername) || "SELLER".equalsIgnoreCase(currentRole)) {
                 Alert alert = new Alert(Alert.AlertType.WARNING);
                 alert.setTitle("Cảnh báo");
                 alert.setHeaderText(null);
-                alert.setContentText("Bạn không thể tham gia đấu giá ở tài khoản Seller");
+                alert.setContentText("Bạn không thể tham gia đấu giá khi đang ở vai trò Seller của sản phẩm này!");
                 alert.showAndWait();
                 return;
             }
@@ -221,9 +249,30 @@ public class AuctionUI implements Initializable {
 
     @FXML
     private void handleBid() {
+        if (selectedProduct == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Cảnh báo");
+            alert.setHeaderText(null);
+            alert.setContentText("Vui lòng chọn một sản phẩm từ danh sách trước khi đặt giá!");
+            alert.showAndWait();
+            return;
+        }
+
         try {
             long amt = Long.parseLong(txtBidAmount.getText());
-            if (controller != null) controller.placeBid(selectedProduct.getProductId(), amt);
-        } catch (Exception e) { showNotification("Giá không hợp lệ", "error"); }
+
+            if (amt <= selectedProduct.getRawPrice()) {
+                showNotification("Giá đặt phải lớn hơn giá hiện tại!", "error");
+                return;
+            }
+
+            if (controller != null) {
+                controller.placeBid(selectedProduct.getProductId(), amt);
+            }
+        } catch (NumberFormatException e) {
+            showNotification("Vui lòng nhập số tiền hợp lệ", "error");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
