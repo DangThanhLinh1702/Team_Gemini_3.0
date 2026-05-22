@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseConnection {
-    private static final String URL = "jdbc:mysql://mysql-39eb3d8a-auctionteamgemini.l.aivencloud.com:25460/team_geminidb";
+    private static final String URL = "jdbc:mysql://mysql-39eb3d8a-auctionteamgemini.l.aivencloud.com:25460/defaultdb?sslMode=REQUIRED";
     private static final  String USER = "avnadmin";
     private static final String PASSWORD = "AVNS_XKpOX5CIOktTk60S0pl";
 

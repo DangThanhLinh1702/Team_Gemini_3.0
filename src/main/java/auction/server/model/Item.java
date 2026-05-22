@@ -2,9 +2,7 @@ package auction.server.model;
 
 import auction.server.repository.ItemRepository;
 
-import java.util.UUID;
-
-public class Item extends Entity{
+public class Item extends Entity {
     private int id;
     private String name;
     private String description;
@@ -13,9 +11,17 @@ public class Item extends Entity{
     private int sellerId;
     private final ItemRepository itemRepository = new ItemRepository();
 
-
+    // Hàm khởi tạo dùng khi tạo mới đối tượng để Đăng bán
     public Item(String name, String description, double startingPrice, String sellerUserName) {
-        this.id = id; // Nhận ID từ database truyền vào
+        this.name = name;
+        this.description = description;
+        this.startingPrice = startingPrice;
+        this.sellerUserName = sellerUserName;
+    }
+
+    // Hàm khởi tạo đầy đủ dùng khi nạp dữ liệu từ Database lên
+    public Item(int id, String name, String description, double startingPrice, String sellerUserName) {
+        this.id = id;
         this.name = name;
         this.description = description;
         this.startingPrice = startingPrice;
@@ -26,31 +32,19 @@ public class Item extends Entity{
 
     public int getSellerId() { return sellerId; }
 
-    public int getId() {
-        return id;
-    }
+    public int getId() { return id; }
 
-    public void setId(int id) {
-        this.id = id;
-    }
+    public void setId(int id) { this.id = id; }
 
-    public String getName() {
-        return name;
-    }
+    public String getName() { return name; }
 
-    public String getDescription() {
-        return description;
-    }
+    public String getDescription() { return description; }
 
-    public double getStartingPrice() {
-        return startingPrice;
-    }
+    public double getStartingPrice() { return startingPrice; }
 
-    public String getSellerUserName() {
-        return sellerUserName;
-    }
+    public String getSellerUserName() { return sellerUserName; }
+
     public Item findItemById(int id) {
         return itemRepository.findById(id);
     }
-
 }
