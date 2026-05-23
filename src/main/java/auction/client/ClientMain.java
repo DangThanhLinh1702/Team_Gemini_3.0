@@ -56,7 +56,7 @@ public class ClientMain extends Application {
                 controller.initializeWithUser(username, role);
             }
 
-            Scene auctionScene = new Scene(root, 900, 600);
+            Scene auctionScene = new Scene(root, 940, 650);
 
             // Chuyển cảnh trên cửa sổ hiện tại (window)
             window.setScene(auctionScene);
