@@ -8,6 +8,10 @@ import auction.shared.util.JwtUtil;
 import com.google.gson.Gson;
 import javafx.application.Platform;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -174,5 +178,56 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
 
     public void placeBid(String id, long a) {
         if (webSocketClient != null) webSocketClient.sendBid(id, a);
+    }
+    /**
+     * Gọi API GET /items để lấy toàn bộ sản phẩm từ Database khi khởi động
+     */
+    public void fetchInitialProducts() {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:8080/items"))
+                .GET()
+                .build();
+
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(HttpResponse::body)
+                .thenAccept(responseBody -> {
+                    try {
+                        JsonObject json = gson.fromJson(responseBody, JsonObject.class);
+                        if ("success".equals(json.get("status").getAsString())) {
+                            JsonArray items = json.getAsJsonArray("data");
+
+                            Platform.runLater(() -> {
+                                ui.clearTable(); // Xóa sạch dữ liệu cũ trên màn hình
+
+                                for (JsonElement elem : items) {
+                                    JsonObject item = elem.getAsJsonObject();
+                                    String id = item.get("id").getAsString();
+                                    String name = item.get("name").getAsString();
+                                    long price = item.get("startingPrice").getAsLong();
+
+                                    // Xử lý tên người bán (Seller)
+                                    String seller = "Unknown";
+                                    if (item.has("sellerUserName") && !item.get("sellerUserName").isJsonNull()) {
+                                        seller = item.get("sellerUserName").getAsString();
+                                    }
+
+                                    // Tạm thời cho mỗi phiên kéo dài 2 phút từ lúc lấy lên UI
+                                    long endTime = System.currentTimeMillis() + (120 * 1000L);
+
+                                    // Thêm vào lưới
+                                    ui.addProduct(new ProductItem(id, name, price, "---", "Đang đấu", seller, endTime));
+                                }
+                                ui.appendLog("Đã tải " + items.size() + " sản phẩm từ Database.");
+                            });
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Lỗi parse JSON danh sách sản phẩm: " + e.getMessage());
+                    }
+                })
+                .exceptionally(e -> {
+                    System.err.println("Không thể kết nối API lấy sản phẩm: " + e.getMessage());
+                    return null;
+                });
     }
 }
