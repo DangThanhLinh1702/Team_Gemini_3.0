@@ -1,23 +1,29 @@
 package auction.client.ui;
 
 import auction.client.controller.AuctionController;
-import auction.shared.dto.ItemDTO;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
-import javafx.geometry.Insets;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.io.ByteArrayInputStream;
 import java.net.URL;
+import java.util.Base64;
 import java.util.ResourceBundle;
 
 public class AuctionUI implements Initializable {
@@ -42,6 +48,9 @@ public class AuctionUI implements Initializable {
     @FXML private Label lblDetailSeller;
     @FXML private ListView<String> listBidHistory;
 
+    // --- THÊM Ô CHỨA ẢNH CHI TIẾT (fx:id="imgDetailPreview") ---
+    @FXML private ImageView imgDetailPreview;
+
     private AuctionController controller;
     private ObservableList<ProductItem> productList;
     private ProductItem selectedProduct;
@@ -51,11 +60,9 @@ public class AuctionUI implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         productList = FXCollections.observableArrayList();
-        // Đã xóa bỏ hoàn toàn setupTable và setupTableSelectionListener
         startCountdownTimer();
         appendLog("Ứng dụng khởi động thành công.");
         btnBid.setDisable(true);
-
     }
 
     public void initializeWithUser(String username, String role) {
@@ -63,39 +70,23 @@ public class AuctionUI implements Initializable {
         this.currentRole = role;
         controller = new AuctionController(this, username);
         updateRoleUI();
-
-        // Tự động tải danh sách sản phẩm từ database lên UI ngay khi vừa đăng nhập thành công
         Platform.runLater(this::handleRefresh);
     }
 
     @FXML
     private void handleToggleRole() {
         if (currentRole == null) return;
-
-        if ("SELLER".equalsIgnoreCase(currentRole)) {
-            currentRole = "BIDDER";
-        } else {
-            currentRole = "SELLER";
-        }
-
+        currentRole = "SELLER".equalsIgnoreCase(currentRole) ? "BIDDER" : "SELLER";
         updateRoleUI();
-        appendLog("Đã chủ động đổi vai trò sang: " + currentRole);
+        appendLog("Đã đổi vai trò sang: " + currentRole);
         showNotification("Đã chuyển sang quyền: " + currentRole, "info");
     }
 
     private void updateRoleUI() {
         Platform.runLater(() -> {
             lblCurrentUser.setText(currentUsername + " (" + currentRole + ")");
-
-            if (btnPostItem != null) {
-                btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
-            }
-
-            if ("SELLER".equalsIgnoreCase(currentRole)) {
-                btnBid.setDisable(true);
-            } else {
-                btnBid.setDisable(false);
-            }
+            if (btnPostItem != null) btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
+            btnBid.setDisable("SELLER".equalsIgnoreCase(currentRole));
         });
     }
 
@@ -105,9 +96,7 @@ public class AuctionUI implements Initializable {
                 long timeRemaining = selectedProduct.getEndTime() - System.currentTimeMillis();
                 if (timeRemaining > 0) {
                     long seconds = timeRemaining / 1000;
-                    long m = (seconds % 3600) / 60;
-                    long s = seconds % 60;
-                    lblCountdown.setText(String.format("%02d:%02d", m, s));
+                    lblCountdown.setText(String.format("%02d:%02d", (seconds % 3600) / 60, seconds % 60));
                 } else {
                     lblCountdown.setText("00:00 (Kết thúc)");
                     btnBid.setDisable(true);
@@ -124,73 +113,56 @@ public class AuctionUI implements Initializable {
     public void clearTable() {
         Platform.runLater(() -> {
             productList.clear();
-            productGrid.getChildren().clear(); // Dọn dẹp các ô vuông cũ trên màn hình
+            productGrid.getChildren().clear();
         });
     }
+
     @FXML
     private void handlePostItem() {
-        Dialog<ItemDTO> dialog = new Dialog<>();
-        dialog.setTitle("Đăng sản phẩm mới");
-        ButtonType postBtnType = new ButtonType("Đăng bán", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(postBtnType, ButtonType.CANCEL);
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/auction/client/ui/PostItemDialog.fxml"));
+            Parent root = loader.load();
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(20, 10, 10, 10));
-
-        TextField name = new TextField();
-        TextField desc = new TextField();
-        TextField price = new TextField();
-
-        grid.add(new Label("Tên SP:"), 0, 0); grid.add(name, 1, 0);
-        grid.add(new Label("Mô tả:"), 0, 1); grid.add(desc, 1, 1);
-        grid.add(new Label("Giá sàn:"), 0, 2); grid.add(price, 1, 2);
-        dialog.getDialogPane().setContent(grid);
-
-        dialog.setResultConverter(btn -> {
-            if (btn == postBtnType) {
-                try { return new ItemDTO(name.getText(), desc.getText(), Double.parseDouble(price.getText()), currentUsername);
-                } catch (Exception e) { return null; }
+            PostItemController postController = loader.getController();
+            if (this.controller != null) {
+                postController.setAuctionController(this.controller);
+            } else {
+                appendLog("Lỗi: Hệ thống mạng chưa được khởi tạo!");
+                return;
             }
-            return null;
-        });
 
-        dialog.showAndWait().ifPresent(itemDTO -> {
-            if (controller != null) {
-                controller.postNewItem(itemDTO);
-            }
-        });
+            Stage stage = new Stage();
+            stage.setTitle("Đăng bán sản phẩm mới");
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.showAndWait();
+        } catch (Exception e) {
+            e.printStackTrace();
+            appendLog("Lỗi mở form đăng bán: " + e.getMessage());
+        }
     }
 
     @FXML
     private void handleRefresh() {
-        // 1. Reset sản phẩm đang chọn về null để tránh lỗi đặt giá nhầm dữ liệu cũ
         this.selectedProduct = null;
-        // 2. Khóa nút đặt giá lại ngay lập tức
         btnBid.setDisable(true);
-        // 3. Xóa chữ hiển thị ở Panel bên phải về trạng thái ban đầu
         lblSelectedProduct.setText("(Chưa chọn sản phẩm)");
         lblCurrentPrice.setText("0 VNĐ");
         lblLeader.setText("---");
         lblCountdown.setText("00:00");
-        // 4. Gọi API kéo dữ liệu mới từ Database về (Logic cũ của bạn)
-        if (controller != null) {
-            controller.fetchInitialProducts();
-        }
-        appendLog("Đã làm mới danh sách và hủy chọn sản phẩm.");
+        if (controller != null) controller.fetchInitialProducts();
+        appendLog("Đã làm mới danh sách.");
     }
 
     public void addProduct(ProductItem item) {
         productList.add(item);
-        javafx.application.Platform.runLater(() -> {
-            javafx.scene.Node card = createProductCard(item);
-            productGrid.getChildren().add(card);
-        });
+        Platform.runLater(() -> productGrid.getChildren().add(createProductCard(item)));
     }
 
     @FXML
     private void handleBackToGrid() {
-        this.selectedProduct = null; // Hủy chọn
-        btnBid.setDisable(true);      // Khóa nút đặt giá
+        this.selectedProduct = null;
+        btnBid.setDisable(true);
         detailPanel.setVisible(false);
         gridScrollPane.setVisible(true);
     }
@@ -200,7 +172,6 @@ public class AuctionUI implements Initializable {
             for (ProductItem item : productList) {
                 if (item.getProductId().equals(productId)) {
                     item.setRawPrice((long) newPrice);
-                    // Chữ trên thẻ và chữ bên panel phải sẽ tự động cập nhật nhờ Binding
                     item.setCurrentPrice(String.format("%,.0f VNĐ", newPrice));
                     item.setLeader(leader);
                     break;
@@ -211,89 +182,117 @@ public class AuctionUI implements Initializable {
 
     public void showAuctionEnded(String productId, String winner, double price) {
         Platform.runLater(() -> {
-            String productName = "Sản phẩm";
-            for (ProductItem item : productList) {
-                if (item.getProductId().equals(productId)) {
-                    productName = item.getProductName();
-                    item.setStatus("Kết thúc");
-                    break;
-                }
-            }
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Thông báo kết thúc đấu giá");
-            alert.setHeaderText(null);
-            alert.setContentText("Phiên đấu giá " + productName + " kết thúc, người thắng cuộc là " + winner + ".");
+            alert.setTitle("Kết thúc");
+            alert.setContentText("Người thắng cuộc là " + winner);
             alert.showAndWait();
         });
     }
 
+    // =====================================================================
+    // SỬA HÀM NÀY: Thêm logic giải mã và hiển thị ảnh Base64
+    // =====================================================================
     public void updateProductDetail(ProductItem product) {
         Platform.runLater(() -> {
             lblSelectedProduct.setText(product.getProductName());
-
-            // Phải gỡ liên kết (unbind) cũ trước khi gán dữ liệu mới để tránh lỗi RuntimeException
             lblCurrentPrice.textProperty().unbind();
             lblCurrentPrice.textProperty().bind(product.currentPriceProperty());
-
             lblLeader.textProperty().unbind();
             lblLeader.textProperty().bind(product.leaderProperty());
+
+            // --- ĐOẠN CODE MỚI ĐỂ HIỂN THỊ ẢNH TRONG CHI TIẾT ---
+            if (imgDetailPreview != null) { // Kiểm tra xem ô chứa ảnh có tồn tại không
+                if (product.getImageBase64() != null && !product.getImageBase64().isEmpty()) {
+                    try {
+                        // Giải mã Base64 thành byte array
+                        byte[] imgBytes = Base64.getDecoder().decode(product.getImageBase64());
+                        // Chuyển byte array thành Image JavaFX
+                        Image img = new Image(new ByteArrayInputStream(imgBytes));
+                        imgDetailPreview.setImage(img); // Thiết lập ảnh cho ô chứa
+                    } catch (Exception e) {
+                        System.err.println("Lỗi giải mã ảnh chi tiết: " + e.getMessage());
+                        // Nếu lỗi, có thể đặt một ảnh mặc định hoặc xóa ảnh cũ
+                        imgDetailPreview.setImage(null);
+                    }
+                } else {
+                    // Không có dữ liệu ảnh, xóa ảnh cũ (nếu có)
+                    imgDetailPreview.setImage(null);
+                }
+            }
+            // ----------------------------------------------------
         });
     }
 
-    public void setCurrentUser(String user) { Platform.runLater(() -> lblCurrentUser.setText(user)); }
-    public void enableBidButton() { btnBid.setDisable(false); }
-    public void appendLog(String msg) { Platform.runLater(() -> txtLog.appendText("[LOG] " + msg + "\n")); }
-    public void showNotification(String msg, String type) { Platform.runLater(() -> lblNotification.setText(msg)); }
-
-
     @FXML
     private void handleBid() {
-        if (selectedProduct == null) {
-            Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("Cảnh báo");
-            alert.setHeaderText(null);
-            alert.setContentText("Vui lòng chọn một sản phẩm từ danh sách trước khi đặt giá!");
-            alert.showAndWait();
-            return;
-        }
-
+        if (selectedProduct == null) return;
         try {
             long amt = Long.parseLong(txtBidAmount.getText());
-
-            if (amt <= selectedProduct.getRawPrice()) {
-                showNotification("Giá đặt phải lớn hơn giá hiện tại!", "error");
-                return;
-            }
-
-            if (controller != null) {
+            if (amt > selectedProduct.getRawPrice() && controller != null) {
                 controller.placeBid(selectedProduct.getProductId(), amt);
+            } else {
+                showNotification("Giá đặt phải lớn hơn giá hiện tại!", "error");
             }
-        } catch (NumberFormatException e) {
-            showNotification("Vui lòng nhập số tiền hợp lệ", "error");
         } catch (Exception e) {
-            e.printStackTrace();
+            showNotification("Giá không hợp lệ", "error");
         }
+    }
+
+    public void setCurrentUser(String user) {
+        Platform.runLater(() -> lblCurrentUser.setText(user));
+    }
+
+    public void enableBidButton() {
+        btnBid.setDisable(false);
+    }
+
+    public void appendLog(String msg) {
+        Platform.runLater(() -> {
+            if (txtLog != null) {
+                txtLog.appendText("[LOG] " + msg + "\n");
+            }
+        });
+    }
+
+    public void showNotification(String msg, String type) {
+        Platform.runLater(() -> {
+            if (lblNotification != null) {
+                lblNotification.setText(msg);
+            }
+        });
     }
 
     private javafx.scene.Node createProductCard(ProductItem item) {
         VBox card = new VBox(5);
-        card.setPrefSize(180, 220);
+        card.setPrefSize(180, 240); // Tăng chiều cao một chút cho ảnh đẹp
         card.setStyle("-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-radius: 8; -fx-padding: 10; -fx-cursor: hand;");
 
-        // Đổi màu khi di chuột vào (Hover effect)
-        card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: #f0f8ff; -fx-border-color: #3498db; -fx-border-radius: 8; -fx-padding: 10; -fx-cursor: hand;"));
-        card.setOnMouseExited(e -> card.setStyle("-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-radius: 8; -fx-padding: 10; -fx-cursor: hand;"));
-
-        // Khung ảnh nhỏ giả lập
         StackPane imgBox = new StackPane();
         imgBox.setPrefSize(160, 120);
-        imgBox.setStyle("-fx-background-color: #ecf0f1;");
-        imgBox.getChildren().add(new Label("Ảnh"));
+        imgBox.setStyle("-fx-background-color: #ecf0f1; -fx-background-radius: 5;");
 
-        // Tên và Giá (Dùng Data Binding để giá tự động nhảy)
+        if (item.getImageBase64() != null && !item.getImageBase64().isEmpty()) {
+            try {
+                // Giải mã Base64 thành Byte
+                byte[] imgBytes = Base64.getDecoder().decode(item.getImageBase64());
+                // Chuyển Byte thành Image JavaFX
+                Image img = new Image(new ByteArrayInputStream(imgBytes));
+                ImageView imgView = new ImageView(img);
+
+                // Căn chỉnh ảnh cho đẹp
+                imgView.setFitWidth(150);
+                imgView.setFitHeight(110);
+                imgView.setPreserveRatio(true); // Giữ đúng tỉ lệ ảnh, không bị méo
+                imgBox.getChildren().add(imgView);
+            } catch (Exception e) {
+                imgBox.getChildren().add(new Label("Lỗi ảnh"));
+            }
+        } else {
+            imgBox.getChildren().add(new Label("Không có ảnh"));
+        }
+
         Label nameLbl = new Label(item.getProductName());
-        nameLbl.setStyle("-fx-font-weight: bold;");
-        nameLbl.setWrapText(true);
+        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
         Label priceLbl = new Label();
         priceLbl.textProperty().bind(item.currentPriceProperty());
@@ -301,31 +300,17 @@ public class AuctionUI implements Initializable {
 
         card.getChildren().addAll(imgBox, nameLbl, priceLbl);
 
-        // click chuột vào thẻ
         card.setOnMouseClicked(e -> {
-            // 1. Cập nhật Panel đặt giá (CỘT PHẢI)
             this.selectedProduct = item;
             updateProductDetail(item);
-
-            // Mở khóa nút "Đặt giá" ngay khi click vào thẻ (thay thế chức năng của nút btnJoin cũ)
-            if (!"SELLER".equalsIgnoreCase(currentRole) || !item.getSeller().equals(currentUsername)) {
-                btnBid.setDisable(false);
+            if (controller != null) controller.joinAuction(item.getProductId());
+            if (lblDetailName != null) lblDetailName.setText("Tên: " + item.getProductName());
+            if (lblDetailSeller != null) lblDetailSeller.setText("Người bán: " + item.getSeller());
+            if (gridScrollPane != null && detailPanel != null) {
+                gridScrollPane.setVisible(false);
+                detailPanel.setVisible(true);
             }
-
-            // Gọi JOIN room qua WebSocket để Server biết mình đang xem sản phẩm này
-            if (controller != null) {
-                controller.joinAuction(item.getProductId());
-                appendLog("Đã tham gia xem đấu giá: " + item.getProductName());
-            }
-
-            // 2. Chuyển CỘT TRÁI sang màn hình Chi Tiết (có ảnh bự, lịch sử)
-            lblDetailName.setText("Tên: " + item.getProductName());
-            lblDetailSeller.setText("Người bán: " + item.getSeller());
-
-            gridScrollPane.setVisible(false);
-            detailPanel.setVisible(true);
         });
-
         return card;
     }
 }

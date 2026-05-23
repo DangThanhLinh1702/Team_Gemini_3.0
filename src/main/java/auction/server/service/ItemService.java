@@ -7,14 +7,19 @@ import java.util.ArrayList;
 
 public class ItemService {
     private final ItemRepository itemRepository = new ItemRepository();
-    public String addItem(String name, String description, double startingPrice, String sellerUserName){
+
+    // ĐÃ SỬA: Nhận thêm biến image và endTime
+    public String addItem(String name, String description, double startingPrice, String sellerUserName, String image, long endTime){
         if (name == null || name.trim().isEmpty()) return "tên sản phẩm không được để trống";
         if (startingPrice <= 0) return "giá khởi điểm phải lớn hơn 0";
         if (sellerUserName == null || sellerUserName.trim().isEmpty()) return "tên người bán không được để trống";
-        Item newItem = new Item(name, description, startingPrice, sellerUserName);
+
+        // ĐÃ SỬA: Dùng hàm khởi tạo 6 tham số để gộp cả Ảnh và Thời gian vào
+        Item newItem = new Item(name, description, startingPrice, sellerUserName, image, endTime);
         itemRepository.saveItem(newItem);
         return "success";
     }
+
     public Item getLastInsertedItem() {
         return itemRepository.findLastInserted();
     }
@@ -22,8 +27,8 @@ public class ItemService {
     public Item findItemById(int id) {
         return itemRepository.findById(id);
     }
+
     public ArrayList<Item> getAllItem(){
-        // Ưu tiên lấy từ database để đảm bảo dữ liệu mới nhất
         return itemRepository.getAllItemsFromDatabase();
     }
 }

@@ -16,8 +16,9 @@ public class AuctionWebSocketClient extends WebSocketClient {
     public interface MessageListener {
         void onPriceUpdated(String itemId, String user, double newPrice);
         void onAuctionEnded(String itemId, String winner, double finalPrice);
-        void onNewItemAdded(String itemId, String name, double price, String seller);
-        void onInitialItemsReceived(List<Map<String, Object>> items); // MỚI
+        // SỬA Ở ĐÂY: Thêm tham số String imageBase64
+        void onNewItemAdded(String itemId, String name, double price, String seller, long endTime, String imageBase64);
+        void onInitialItemsReceived(List<Map<String, Object>> items);
         void onError(String errorMessage);
     }
 
@@ -32,7 +33,7 @@ public class AuctionWebSocketClient extends WebSocketClient {
     public void onMessage(String message) {
         try {
             ResponseDTO response = gson.fromJson(message, ResponseDTO.class);
-            if (response.getData() != null && messageListener != null) {
+            if (response != null && response.getData() != null && messageListener != null) {
                 Map<String, Object> data = (Map<String, Object>) response.getData();
                 String type = (String) data.get("type");
 
@@ -41,11 +42,18 @@ public class AuctionWebSocketClient extends WebSocketClient {
                     messageListener.onInitialItemsReceived(items);
                 } else if ("NEW_ITEM_ADDED".equals(type)) {
                     String itemId = String.valueOf(((Number) data.get("itemId")).intValue());
-                    messageListener.onNewItemAdded(itemId, (String)data.get("name"), ((Number)data.get("price")).doubleValue(), (String)data.get("seller"));
+                    String name = (String) data.get("name");
+                    double price = ((Number) data.get("price")).doubleValue();
+                    String seller = (String) data.get("seller");
+                    long endTime = ((Number) data.get("endTime")).longValue();
+
+                    // SỬA Ở ĐÂY: Đọc ảnh từ Server gửi về (nếu có)
+                    String imageBase64 = data.containsKey("image") ? (String) data.get("image") : "";
+
+                    messageListener.onNewItemAdded(itemId, name, price, seller, endTime, imageBase64);
                 } else if ("UPDATE_PRICE".equals(type)) {
                     messageListener.onPriceUpdated(String.valueOf(((Number)data.get("itemId")).intValue()), (String)data.get("user"), ((Number)data.get("price")).doubleValue());
                 } else if ("AUCTION_ENDED".equals(type)) {
-                    // ĐÃ THÊM: Xử lý sự kiện kết thúc phiên đấu giá
                     String itemId = String.valueOf(((Number) data.get("itemId")).intValue());
                     String winner = (String) data.get("winner");
                     double finalPrice = ((Number) data.get("price")).doubleValue();
