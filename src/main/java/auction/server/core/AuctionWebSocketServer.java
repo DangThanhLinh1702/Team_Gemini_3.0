@@ -12,7 +12,6 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 import java.net.InetSocketAddress;
-import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,20 +22,15 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     public AuctionWebSocketServer(int port) {
         super(new InetSocketAddress(port));
-
-        // Lắng nghe sự kiện kết thúc phiên từ AuctionManager
         AuctionManager.getInstance().setOnAuctionEndCallback(session -> {
             Map<String, Object> data = new HashMap<>();
             data.put("type", "AUCTION_ENDED");
             data.put("itemId", session.getItemId());
             data.put("winner", session.getHighestBidder());
             data.put("price", session.getCurrentPrice());
-
             Map<String, Object> resp = new HashMap<>();
             resp.put("status", "success");
             resp.put("data", data);
-
-            // Chỉ gửi cho những người trong Room
             broadcastToRoom(session.getItemId(), gson.toJson(resp));
         });
     }
@@ -44,7 +38,10 @@ public class AuctionWebSocketServer extends WebSocketServer {
     @Override
     public void onOpen(WebSocket webSocket, ClientHandshake clientHandshake) {
         System.out.println("✅ Kết nối mới: " + webSocket.getRemoteSocketAddress());
+        sendInitialItems(webSocket);
+    }
 
+    private void sendInitialItems(WebSocket webSocket) {
         List<Map<String, Object>> itemsToSend = new ArrayList<>();
         for (Item item : itemService.getAllItem()) {
             Map<String, Object> mapData = new HashMap<>();
@@ -53,24 +50,25 @@ public class AuctionWebSocketServer extends WebSocketServer {
             mapData.put("description", item.getDescription());
             mapData.put("seller", item.getSellerUserName());
 
+            // ĐÃ SỬA: Lấy Ảnh và Thời gian từ Database gửi về cho Client
+            mapData.put("image", item.getImage());
+            mapData.put("endTime", item.getEndTime());
+
             AuctionSession session = AuctionManager.getInstance().getSession(item.getId());
             if (session != null) {
                 mapData.put("startingPrice", session.getCurrentPrice());
-                mapData.put("endTime", session.getEndTime());
+                mapData.put("endTime", session.getEndTime().getTime());
             } else {
                 mapData.put("startingPrice", item.getStartingPrice());
-                mapData.put("endTime", 0L);
             }
             itemsToSend.add(mapData);
         }
-
         Map<String, Object> response = new HashMap<>();
         response.put("status", "success");
         Map<String, Object> data = new HashMap<>();
         data.put("type", "INITIAL_ITEMS");
         data.put("items", itemsToSend);
         response.put("data", data);
-
         webSocket.send(gson.toJson(response));
     }
 
@@ -87,16 +85,19 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
             switch (request.getAction()) {
                 case "POST_ITEM":
-                    String result = itemService.addItem(request.getName(), request.getDescription(), request.getPrice(), username);
+                    int duration = request.getDuration() > 0 ? request.getDuration() : 120;
+                    long calculatedEndTime = System.currentTimeMillis() + (duration * 1000L);
+
+                    // ĐÃ SỬA: Truyền thêm ảnh và thời gian vào Service
+                    String result = itemService.addItem(request.getName(), request.getDescription(), request.getPrice(), username, request.getImage(), calculatedEndTime);
+
                     if ("success".equals(result)) {
                         List<Item> allItems = itemService.getAllItem();
                         Item newItem = allItems.get(allItems.size() - 1);
                         int realId = newItem.getId();
-
-                        // Tạo phiên đấu giá mới với ID int
-                        // Chuyển sellerUserName thành sellerId bằng hashCode
                         int sellerId = newItem.getSellerUserName().hashCode();
-                        AuctionManager.getInstance().createNewSession(realId, sellerId, request.getPrice(), 120);
+
+                        AuctionManager.getInstance().createNewSession(realId, sellerId, request.getPrice(), duration);
 
                         Map<String, Object> data = new HashMap<>();
                         data.put("type", "NEW_ITEM_ADDED");
@@ -104,6 +105,8 @@ public class AuctionWebSocketServer extends WebSocketServer {
                         data.put("name", request.getName());
                         data.put("price", request.getPrice());
                         data.put("seller", username);
+                        data.put("endTime", calculatedEndTime);
+                        data.put("image", request.getImage());
 
                         Map<String, Object> resp = new HashMap<>();
                         resp.put("status", "success");
@@ -115,13 +118,10 @@ public class AuctionWebSocketServer extends WebSocketServer {
                     joinRoom(webSocket, Integer.parseInt(request.getItemId()), username);
                     break;
                 case "BID":
-                    handleBid(webSocket, Integer.parseInt(request.getItemId()), username, request.getPrice());
+                    handleBid(webSocket, Integer.parseInt(request.getItemId()), username, (long)request.getPrice());
                     break;
-
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void joinRoom(WebSocket conn, int itemId, String username) {
@@ -131,26 +131,21 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     private void handleBid(WebSocket conn, int itemId, String username, long price) {
         Item targetItem = itemService.findItemById(itemId);
-
         if (targetItem != null && targetItem.getSellerUserName().equals(username)) {
             sendError(conn, "Bạn không thể tham gia đấu giá ở tài khoản Seller");
             return;
         }
-
         AuctionSession session = AuctionManager.getInstance().getSession(itemId);
-
         if (session == null) {
             sendError(conn, "Sản phẩm này chưa được tạo phiên đấu giá!");
             return;
         }
-
         if (session.placeBid(username, price)) {
             Map<String, Object> data = new HashMap<>();
             data.put("type", "UPDATE_PRICE");
             data.put("itemId", itemId);
             data.put("user", username);
-            data.put("price", price);
-
+            data.put("price", (double)price);
             Map<String, Object> resp = new HashMap<>();
             resp.put("status", "success");
             resp.put("data", data);
@@ -176,5 +171,5 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     @Override public void onClose(WebSocket ws, int i, String s, boolean b) {}
     @Override public void onError(WebSocket ws, Exception e) {}
-    @Override public void onStart() { System.out.println("Server started on 8081"); }
+    @Override public void onStart() { System.out.println("WebSocket Server started"); }
 }

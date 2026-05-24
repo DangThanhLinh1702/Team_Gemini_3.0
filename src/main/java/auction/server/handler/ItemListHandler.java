@@ -9,7 +9,6 @@ import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 
-// ItemListHandler.java - CẦN SỬA
 public class ItemListHandler implements HttpHandler {
     private final ItemService itemService = new ItemService();
 
@@ -24,6 +23,7 @@ public class ItemListHandler implements HttpHandler {
             String path = exchange.getRequestURI().getPath();
 
             if ("/items".equals(path)) {
+                // Gson sẽ tự động đóng gói cả imageData và endTime gửi về cho Client
                 var listItems = itemService.getAllItem();
                 ResponseDTO response = new ResponseDTO("success",
                         "Lấy danh sách sản phẩm thành công", listItems);
