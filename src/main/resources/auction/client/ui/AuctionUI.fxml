@@ -38,19 +38,31 @@
                 <Label text="📦 Danh sách sản phẩm đấu giá"
                        style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
 
-                <TableView fx:id="tableProducts" VBox.vgrow="ALWAYS"
-                           style="-fx-background-color: white; -fx-border-color: #dce1e7; -fx-border-radius: 8;">
-                    <columns>
-                        <TableColumn fx:id="colProductName" text="Tên sản phẩm" prefWidth="200"/>
-                        <TableColumn fx:id="colCurrentPrice" text="Giá hiện tại (VNĐ)" prefWidth="160"/>
-                        <TableColumn fx:id="colLeader" text="Người dẫn đầu" prefWidth="150"/>
-                        <TableColumn fx:id="colStatus" text="Trạng thái" prefWidth="100"/>
-                    </columns>
-                    <placeholder>
-                        <Label text="Chưa có sản phẩm nào..."
-                               style="-fx-text-fill: #95a5a6;"/>
-                    </placeholder>
-                </TableView>
+                <StackPane VBox.vgrow="ALWAYS">
+
+                    <ScrollPane fx:id="gridScrollPane" fitToWidth="true" style="-fx-background-color: transparent;">
+                        <FlowPane fx:id="productGrid" hgap="15" vgap="15"
+                                  style="-fx-background-color: white; -fx-padding: 10;" alignment="TOP_CENTER"/>
+                    </ScrollPane>
+
+                    <VBox fx:id="detailPanel" visible="false" spacing="15"
+                          style="-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-radius: 5; -fx-padding: 20;">
+                        <Button text="⬅ Trở lại" onAction="#handleBackToGrid"
+                                style="-fx-background-color: #ecf0f1; -fx-cursor: hand; -fx-font-weight: bold;"/>
+                        <Separator/>
+                        <HBox spacing="20">
+                            <StackPane prefWidth="250" prefHeight="250" style="-fx-background-color: #f4f6f9; -fx-border-color: #bdc3c7;">
+                                <Label text="[Hình ảnh Sản phẩm]" textFill="#7f8c8d"/>
+                            </StackPane>
+                            <VBox spacing="10">
+                                <Label fx:id="lblDetailName" text="Tên: " style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                                <Label fx:id="lblDetailSeller" text="Người bán: " style="-fx-font-size: 14px;"/>
+                                <Label text="Lịch sử đấu giá:" style="-fx-font-weight: bold; -fx-margin-top: 10;"/>
+                                <ListView fx:id="listBidHistory" VBox.vgrow="ALWAYS" prefHeight="150" style="-fx-font-size: 12px;"/>
+                            </VBox>
+                        </HBox>
+                    </VBox>
+                </StackPane>
             </VBox>
 
             <VBox spacing="15" prefWidth="280"
@@ -106,14 +118,6 @@
                 </VBox>
 
                 <VBox spacing="8">
-                    <Button fx:id="btnJoin"
-                            text="🚀 Tham gia đấu giá"
-                            maxWidth="Infinity"
-                            onAction="#handleJoin"
-                            style="-fx-background-color: #3498db; -fx-text-fill: white;
-                                   -fx-font-size: 13px; -fx-font-weight: bold;
-                                   -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
-                                   -fx-cursor: hand;"/>
 
                     <Button fx:id="btnBid"
                             text="💸 Đặt giá"
@@ -124,8 +128,19 @@
                                    -fx-font-size: 13px; -fx-font-weight: bold;
                                    -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
                                    -fx-cursor: hand;"/>
-                </VBox>
 
+                    <Button fx:id="btnChangeRole"
+                            text="🔄 Đổi Vai Trò"
+                            maxWidth="Infinity"
+                            onAction="#handleToggleRole"
+                            style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;"/>
+
+                    <Button fx:id="btnRefresh"
+                            text="🔄 Làm mới danh sách"
+                            maxWidth="Infinity"
+                            onAction="#handleRefresh"
+                            style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                </VBox>
                 <Separator/>
 
                 <Label fx:id="lblNotification"
