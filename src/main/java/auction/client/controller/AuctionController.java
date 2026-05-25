@@ -49,11 +49,14 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
 
     @Override
     public void onNewItemAdded(String itemId, String name, double price, String seller, long endTime, String imageBase64) {
+        // Đảm bảo chạy trên JavaFX Thread
         Platform.runLater(() -> {
+            // 1. Tạo đối tượng ProductItem mới
             ProductItem newItem = new ProductItem(itemId, name, (long)price, "---", "Đang đấu", seller, endTime);
-            newItem.setImageBase64(imageBase64); // Nhét ảnh vào Item
+            newItem.setImageBase64(imageBase64);
+
+            // 2. Yêu cầu UI vẽ ngay lên màn hình
             ui.addProduct(newItem);
-            ui.showNotification("✨ Sản phẩm mới: " + name, "success");
         });
     }
 

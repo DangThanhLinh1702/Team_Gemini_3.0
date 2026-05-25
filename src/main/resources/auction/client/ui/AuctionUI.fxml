@@ -9,7 +9,7 @@
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="auction.client.ui.AuctionUI"
-            prefWidth="900" prefHeight="600"
+            prefWidth="1100" prefHeight="650"
             style="-fx-background-color: #f4f6f9;">
 
     <top>
@@ -42,8 +42,8 @@
                 <StackPane VBox.vgrow="ALWAYS">
 
                     <ScrollPane fx:id="gridScrollPane" fitToWidth="true" style="-fx-background-color: transparent;">
-                        <FlowPane fx:id="productGrid" hgap="15" vgap="15"
-                                  style="-fx-background-color: white; -fx-padding: 10;" alignment="TOP_CENTER"/>
+                        <TilePane fx:id="productGrid" hgap="15" vgap="15" prefColumns="3"
+                                  style="-fx-background-color: white; -fx-padding: 15;" alignment="TOP_LEFT"/>
                     </ScrollPane>
 
                     <VBox fx:id="detailPanel" visible="false" spacing="15"
@@ -141,6 +141,8 @@
                             text="🔄 Làm mới danh sách"
                             maxWidth="Infinity"
                             onAction="#handleRefresh"
+                            visible="false"
+                            managed="false"
                             style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;"/>
                 </VBox>
                 <Separator/>

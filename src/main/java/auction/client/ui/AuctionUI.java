@@ -14,7 +14,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.TilePane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
@@ -42,7 +42,7 @@ public class AuctionUI implements Initializable {
     @FXML private TextArea txtLog;
 
     @FXML private ScrollPane gridScrollPane;
-    @FXML private FlowPane productGrid;
+    @FXML private TilePane productGrid;
     @FXML private VBox detailPanel;
     @FXML private Label lblDetailName;
     @FXML private Label lblDetailSeller;
@@ -63,6 +63,9 @@ public class AuctionUI implements Initializable {
         startCountdownTimer();
         appendLog("Ứng dụng khởi động thành công.");
         btnBid.setDisable(true);
+        if (txtBidAmount != null) {
+            txtBidAmount.setDisable(true);
+        }
     }
 
     public void initializeWithUser(String username, String role) {
@@ -155,16 +158,29 @@ public class AuctionUI implements Initializable {
     }
 
     public void addProduct(ProductItem item) {
-        productList.add(item);
-        Platform.runLater(() -> productGrid.getChildren().add(createProductCard(item)));
+        Platform.runLater(() -> {
+            productList.add(item); // Thêm vào bộ nhớ danh sách
+            // Tạo giao diện thẻ và nhét thẳng vào lưới (productGrid)
+            javafx.scene.Node card = createProductCard(item);
+            productGrid.getChildren().add(card);
+        });
     }
 
     @FXML
     private void handleBackToGrid() {
-        this.selectedProduct = null;
-        btnBid.setDisable(true);
-        detailPanel.setVisible(false);
-        gridScrollPane.setVisible(true);
+        if (gridScrollPane != null && detailPanel != null) {
+            gridScrollPane.setVisible(true);
+            detailPanel.setVisible(false);
+        }
+        // THÊM DÒNG NÀY: Khóa lại ô nhập giá và xóa chữ đang nhập dở đi
+        if (txtBidAmount != null) {
+            txtBidAmount.clear();
+            txtBidAmount.setDisable(true);
+        }
+        // Khóa luôn cả nút Đặt giá nếu cần thiết
+        if (btnBid != null) {
+            btnBid.setDisable(true);
+        }
     }
 
     public void updatePrice(String productId, double newPrice, String leader) {
@@ -189,9 +205,6 @@ public class AuctionUI implements Initializable {
         });
     }
 
-    // =====================================================================
-    // SỬA HÀM NÀY: Thêm logic giải mã và hiển thị ảnh Base64
-    // =====================================================================
     public void updateProductDetail(ProductItem product) {
         Platform.runLater(() -> {
             lblSelectedProduct.setText(product.getProductName());
@@ -219,7 +232,6 @@ public class AuctionUI implements Initializable {
                     imgDetailPreview.setImage(null);
                 }
             }
-            // ----------------------------------------------------
         });
     }
 
@@ -306,6 +318,9 @@ public class AuctionUI implements Initializable {
             if (controller != null) controller.joinAuction(item.getProductId());
             if (lblDetailName != null) lblDetailName.setText("Tên: " + item.getProductName());
             if (lblDetailSeller != null) lblDetailSeller.setText("Người bán: " + item.getSeller());
+            if (txtBidAmount != null) {
+                txtBidAmount.setDisable(false);
+            }
             if (gridScrollPane != null && detailPanel != null) {
                 gridScrollPane.setVisible(false);
                 detailPanel.setVisible(true);
