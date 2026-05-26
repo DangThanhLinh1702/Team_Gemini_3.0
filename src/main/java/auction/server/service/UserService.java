@@ -28,15 +28,17 @@ public class UserService {
         }
 
         String upperRole = role.toUpperCase();
+        // ADMIN không thể được tạo qua đăng ký thông thường
+        if (upperRole.equals("ADMIN")) {
+            return "Không được phép đăng ký tài khoản ADMIN!";
+        }
         User newUser;
         if (upperRole.equals("BIDDER")) {
             newUser = new Bidder(username, password);
         } else if (upperRole.equals("SELLER")) {
             newUser = new Seller(username, password);
-        } else if (upperRole.equals("ADMIN")) {
-            newUser = new Admin(username, password);
         } else {
-            return "Quyền không hợp lệ!";
+            return "Quyền không hợp lệ! Chỉ chấp nhận BIDDER hoặc SELLER.";
         }
 
         userRepository.saveUser(newUser);

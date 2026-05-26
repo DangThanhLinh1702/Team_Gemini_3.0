@@ -13,6 +13,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class AuthHandler implements HttpHandler {
     private final UserService userService = new UserService();
@@ -72,7 +74,12 @@ public class AuthHandler implements HttpHandler {
         if (user != null) {
             String token = JwtUtil.createToken(user.getUsername(), user.getRole());
 
-            ResponseDTO successResponse = new ResponseDTO("success", "Đăng nhập thành công", token);
+            // Trả về data dạng Object gồm token + role để client đọc được
+            Map<String, String> data = new HashMap<>();
+            data.put("token", token);
+            data.put("role", user.getRole());
+
+            ResponseDTO successResponse = new ResponseDTO("success", "Đăng nhập thành công", data);
             HttpResponseUtil.sendHttpResponse(exchange, 200, successResponse);
         } else {
             HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Sai tài khoản hoặc mật khẩu"));

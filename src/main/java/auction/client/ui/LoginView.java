@@ -20,14 +20,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.function.BiConsumer;
 
 public class LoginView extends StackPane {
 
-    private final BiConsumer<String, String> onLoginSuccess;
+    // Thay đổi BiConsumer thành LoginSuccessHandler
+    private final LoginSuccessHandler onLoginSuccess;
     private final Runnable onSignUp;
 
-    public LoginView(BiConsumer<String, String> onLoginSuccess, Runnable onSignUp) {
+    public LoginView(LoginSuccessHandler onLoginSuccess, Runnable onSignUp) {
         this.onLoginSuccess = onLoginSuccess;
         this.onSignUp = onSignUp;
 
@@ -96,24 +96,39 @@ public class LoginView extends StackPane {
 
                             try {
                                 JsonObject jsonObject = new Gson().fromJson(response.body(), JsonObject.class);
-                                String role = "Bidder"; // Gán mặc định để tránh crash
+                                String role = null;
+                                String token = null; // Khởi tạo biến lưu token
 
-                                // Xử lý an toàn: Kiểm tra xem 'data' là Object hay chữ bình thường
+                                // Xử lý an toàn: Lấy data, bóc tách role và token
                                 if (jsonObject.has("data") && jsonObject.get("data").isJsonObject()) {
                                     JsonObject dataObj = jsonObject.getAsJsonObject("data");
                                     if (dataObj.has("role")) {
                                         role = dataObj.get("role").getAsString();
                                     }
-                                } else if (jsonObject.has("role")) {
-                                    // Trường hợp role nằm thẳng ở ngoài
-                                    role = jsonObject.get("role").getAsString();
+                                    if (dataObj.has("token")) {
+                                        token = dataObj.get("token").getAsString(); // Lấy token từ JSON
+                                    }
+                                } else {
+                                    // Trường hợp fallback nếu structure không nằm trong 'data'
+                                    if (jsonObject.has("role")) {
+                                        role = jsonObject.get("role").getAsString();
+                                    }
+                                    if (jsonObject.has("token")) {
+                                        token = jsonObject.get("token").getAsString();
+                                    }
                                 }
 
-                                this.onLoginSuccess.accept(user, role);
+                                if (role == null || role.trim().isEmpty() || token == null || token.trim().isEmpty()) {
+                                    showAlert(Alert.AlertType.ERROR, "Lỗi đăng nhập", "Server không trả về đủ thông tin (role/token). Vui lòng thử lại.");
+                                    return;
+                                }
+
+                                // Gọi callback và TRUYỀN TOKEN KÈM THEO
+                                this.onLoginSuccess.handle(user, role.toUpperCase(), token);
+
                             } catch (Exception ex) {
-                                System.err.println("Cảnh báo khi đọc JSON: " + ex.getMessage());
-                                // Nếu đọc lỗi vẫn cho vào (mặc định là Bidder) để tiện test giao diện
-                                this.onLoginSuccess.accept(user, "Bidder");
+                                System.err.println("Lỗi khi đọc JSON từ server: " + ex.getMessage());
+                                showAlert(Alert.AlertType.ERROR, "Lỗi", "Phản hồi từ server không hợp lệ.");
                             }
                         } else {
                             showAlert(Alert.AlertType.ERROR, "Đăng nhập thất bại", "Sai tài khoản hoặc mật khẩu!");

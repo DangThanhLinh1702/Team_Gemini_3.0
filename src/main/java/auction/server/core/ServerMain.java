@@ -41,7 +41,7 @@ public class ServerMain {
             AuctionWebSocketServer wsServer = new AuctionWebSocketServer(8081);
             wsServer.start();
 
-            System.out.println("\n✓ WebSocket Server started on port 8081");
+            System.out.println("\n✓ WebSocket Server started on port 8080");
             System.out.println("  Actions: JOIN, BID");
 
             // 🌟 TẠO SẢN PHẨM MẪU (DUMMY DATA) TẠI ĐÂY 🌟

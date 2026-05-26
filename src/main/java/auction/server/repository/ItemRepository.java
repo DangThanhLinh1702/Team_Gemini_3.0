@@ -107,4 +107,39 @@ public class ItemRepository {
         }
         return null;
     }
+
+    // ➕ ĐÃ THÊM: Hàm XÓA sản phẩm theo ID cho Admin
+    public boolean deleteItemById(int itemId) {
+        String query = "DELETE FROM items WHERE item_id = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+
+            ps.setInt(1, itemId);
+            int affectedRows = ps.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI XÓA ITEM THEO ID: " + exception.getMessage());
+            return false;
+        }
+    }
+
+    // ➕ ĐÃ THÊM: Hàm CẬP NHẬT sản phẩm theo ID cho Admin (Đã chỉnh theo cột image_data)
+    public boolean updateItem(int itemId, String name, String description, double startingPrice, String imageBase64) {
+        String query = "UPDATE items SET name = ?, description = ?, starting_price = ?, image_data = ? WHERE item_id = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+
+            ps.setString(1, name);
+            ps.setString(2, description);
+            ps.setDouble(3, startingPrice);
+            ps.setString(4, imageBase64 != null ? imageBase64 : "");
+            ps.setInt(5, itemId);
+
+            int affectedRows = ps.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI CẬP NHẬT ITEM: " + exception.getMessage());
+            return false;
+        }
+    }
 }

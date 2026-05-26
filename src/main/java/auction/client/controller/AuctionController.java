@@ -1,6 +1,8 @@
 package auction.client.controller;
 
+import auction.client.ClientMain; // <--- ĐÃ THÊM: Import ClientMain để lấy Token toàn cục
 import auction.client.network.AuctionWebSocketClient;
+import auction.client.network.AdminItemClient;
 import auction.client.ui.AuctionUI;
 import auction.client.ui.ProductItem;
 import auction.shared.util.JwtUtil;
@@ -16,11 +18,17 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
     private String currentUsername;
     private AuctionWebSocketClient webSocketClient;
     private final Gson gson = new Gson();
+    private String jwtToken; // Token cục bộ (Có thể giữ lại hoặc bỏ)
 
     public AuctionController(AuctionUI ui, String username) {
         this.ui = ui;
         this.currentUsername = username;
         connectToServer();
+    }
+
+    /** Lưu JWT token để dùng cho các lệnh ADMIN */
+    public void setJwtToken(String token) {
+        this.jwtToken = token;
     }
 
     private void connectToServer() {
@@ -49,38 +57,36 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
 
     @Override
     public void onNewItemAdded(String itemId, String name, double price, String seller, long endTime, String imageBase64) {
-        // Đảm bảo chạy trên JavaFX Thread
         Platform.runLater(() -> {
-            // 1. Tạo đối tượng ProductItem mới
             ProductItem newItem = new ProductItem(itemId, name, (long)price, "---", "Đang đấu", seller, endTime);
             newItem.setImageBase64(imageBase64);
-
-            // 2. Yêu cầu UI vẽ ngay lên màn hình
             ui.addProduct(newItem);
+            ui.showNotification("✨ Sản phẩm mới: " + name, "success");
         });
     }
 
-    @Override
     public void onInitialItemsReceived(List<Map<String, Object>> items) {
         Platform.runLater(() -> {
             ui.clearTable();
             for (Map<String, Object> item : items) {
                 try {
-                    String id = String.valueOf(item.get("id"));
+                    // ✅ ĐÃ SỬA: Lấy chuỗi ID thô ra trước (có thể là "1" hoặc "1.0")
+                    String idRaw = String.valueOf(item.get("id"));
+                    // ✅ Xử lý: Nếu chuỗi kết thúc bằng ".0" thì chặt bỏ 2 ký tự cuối đi
+                    String id = idRaw.endsWith(".0") ? idRaw.substring(0, idRaw.length() - 2) : idRaw;
+
                     String name = (String) item.get("name");
 
-                    // Ép kiểu an toàn bằng cách chuyển sang String rồi parse ra số
+                    // Các phần khác giữ nguyên...
                     long price = (long) Double.parseDouble(String.valueOf(item.get("startingPrice")));
                     String seller = (String) item.get("seller");
                     long endTime = (long) Double.parseDouble(String.valueOf(item.get("endTime")));
 
-                    // --- ĐÃ SỬA Ở ĐÂY: Lấy chuỗi ảnh từ dữ liệu Server gửi về ---
                     String imageBase64 = "";
                     if (item.containsKey("image") && item.get("image") != null) {
                         imageBase64 = (String) item.get("image");
                     }
 
-                    // --- ĐÃ SỬA Ở ĐÂY: Khởi tạo ProductItem và gán ảnh vào ---
                     ProductItem productItem = new ProductItem(id, name, price, "---", "Đang đấu", seller, endTime);
                     productItem.setImageBase64(imageBase64);
 
@@ -98,4 +104,18 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
     public void joinAuction(String id) { if (webSocketClient != null) webSocketClient.sendJoinRoom(id); ui.enableBidButton(); }
     public void placeBid(String id, long a) { if (webSocketClient != null) webSocketClient.sendBid(id, a); }
     public void fetchInitialProducts() {}
+
+    // ── ADMIN: Xóa sản phẩm + phiên đấu giá ─────────────────────────────────
+    // ĐÃ SỬA: Lấy token trực tiếp từ ClientMain.getJwtToken()
+    public AdminItemClient.Result deleteItem(String itemId) {
+        return AdminItemClient.deleteItem(ClientMain.getJwtToken(), itemId);
+    }
+
+    // ── ADMIN: Sửa sản phẩm + phiên đấu giá ─────────────────────────────────
+    // ĐÃ SỬA: Lấy token trực tiếp từ ClientMain.getJwtToken()
+    public AdminItemClient.Result updateItem(String itemId, String name,
+                                             String description, double price) {
+        System.out.println(">>> KIỂM TRA TOKEN TRONG CONTROLLER: [" + ClientMain.getJwtToken() + "]");
+        return AdminItemClient.updateItem(ClientMain.getJwtToken(), itemId, name, description, price);
+    }
 }
