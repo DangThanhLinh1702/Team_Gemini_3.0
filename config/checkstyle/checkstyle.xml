@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!--
+  Checkstyle cơ bản cho dự án Auction.
+  Tập trung vào các lỗi phổ biến, không quá nghiêm ngặt về style.
+-->
+<module name="Checker">
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- Kiểm tra từng file Java -->
+    <module name="TreeWalker">
+
+        <!-- ─── Naming conventions ─────────────────── -->
+        <module name="TypeName"/>          <!-- ClassName phải viết hoa -->
+        <module name="MethodName"/>        <!-- methodName phải camelCase -->
+        <module name="LocalVariableName"/> <!-- localVar phải camelCase -->
+
+        <!-- ─── Code quality ──────────────────────── -->
+        <module name="EmptyBlock"/>        <!-- không để block {} rỗng -->
+        <module name="NeedBraces"/>        <!-- if/else/for phải có {} -->
+        <module name="EqualsHashCode"/>    <!-- override equals thì phải override hashCode -->
+        <module name="SimplifyBooleanReturn"/> <!-- return condition thay vì if/else return true/false -->
+
+        <!-- ─── Imports ────────────────────────────── -->
+        <module name="UnusedImports"/>     <!-- xóa import không dùng -->
+        <module name="RedundantImport"/>   <!-- không import trùng -->
+
+        <!-- ─── Common mistakes ───────────────────── -->
+        <module name="StringLiteralEquality"/> <!-- dùng .equals() thay vì == cho String -->
+        <module name="ModifiedControlVariable"/> <!-- không sửa biến for-loop trong thân loop -->
+    </module>
+
+    <!-- Không để file trắng ở cuối -->
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf_cr_crlf"/>
+    </module>
+</module>
