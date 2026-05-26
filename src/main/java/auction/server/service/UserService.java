@@ -7,8 +7,22 @@ import auction.server.model.User;
 import auction.server.repository.UserRepository;
 import java.util.List;
 
-public class UserService {
-    private final UserRepository userRepository = new UserRepository();
+public class UserService implements IUserService {
+
+    private final UserRepository userRepository;
+
+    /** Constructor mặc định — dùng trong production. */
+    public UserService() {
+        this.userRepository = new UserRepository();
+    }
+
+    /**
+     * Constructor cho testing (Dependency Injection).
+     * Cho phép truyền mock UserRepository vào, không cần kết nối DB thật.
+     */
+    UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     public String register(String username, String password, String role) {
 
@@ -40,7 +54,6 @@ public class UserService {
         }
 
         userRepository.saveUser(newUser);
-
         return "success";
     }
 
@@ -60,20 +73,21 @@ public class UserService {
     public List<User> getAllUsers() {
         return userRepository.getAllUsers();
     }
-    public User loginAndGetUser(String username, String password){
-        if (username == null || password == null){
+
+    public User loginAndGetUser(String username, String password) {
+        if (username == null || password == null) {
             return null;
         }
         boolean isValid = userRepository.checkLogin(username, password);
-        if(isValid){
+        if (isValid) {
             return userRepository.getAllUsers().stream()
                     .filter(u -> u.getUsername().equals(username))
                     .findFirst()
                     .orElse(null);
         }
         return null;
-
     }
+
     public User getUserByUsername(String username) {
         return userRepository.getAllUsers().stream()
                 .filter(u -> u.getUsername().equals(username))

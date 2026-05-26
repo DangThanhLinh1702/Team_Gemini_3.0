@@ -6,7 +6,18 @@ import auction.server.repository.ItemRepository;
 import java.util.ArrayList;
 
 public class ItemService {
-    private final ItemRepository itemRepository = new ItemRepository();
+    private final ItemRepository itemRepository;
+
+    // Constructor cho dependency injection (dùng cho testing)
+    public ItemService(ItemRepository itemRepository) {
+        this.itemRepository = itemRepository;
+    }
+
+    // Constructor mặc định
+    public ItemService() {
+        this.itemRepository = new ItemRepository();
+    }
+
 
     // ĐÃ SỬA: Nhận thêm biến image và endTime
     public String addItem(String name, String description, double startingPrice, String sellerUserName, String image, long endTime){
