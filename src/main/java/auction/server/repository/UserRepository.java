@@ -142,6 +142,78 @@ public class UserRepository {
         return users;
     }
 
+    // Xóa user theo username (ADMIN dùng)
+    public boolean deleteUser(String username) {
+        String query = "DELETE FROM users WHERE username = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+            ps.setString(1, username);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Block / Unblock user (thêm cột is_blocked nếu chưa có, rồi cập nhật)
+    public boolean setUserBlocked(String username, boolean blocked) {
+        // Đảm bảo cột tồn tại (idempotent - chạy nhiều lần không sao)
+        ensureBlockedColumn();
+        String query = "UPDATE users SET is_blocked = ? WHERE username = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+            ps.setBoolean(1, blocked);
+            ps.setString(2, username);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean isUserBlocked(String username) {
+        ensureBlockedColumn();
+        String query = "SELECT is_blocked FROM users WHERE username = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+            ps.setString(1, username);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getBoolean("is_blocked");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // Tự động thêm cột is_blocked nếu chưa có trong DB
+    private void ensureBlockedColumn() {
+        String alterQuery = "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(alterQuery)) {
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            // MySQL không hỗ trợ IF NOT EXISTS cho ALTER TABLE trong mọi phiên bản
+            // Thử cách khác: kiểm tra trước
+            try {
+                String checkQuery = "SELECT is_blocked FROM users LIMIT 1";
+                try (Connection connection = DatabaseConnection.getConnection();
+                     PreparedStatement ps2 = connection.prepareStatement(checkQuery)) {
+                    ps2.executeQuery(); // Nếu không lỗi => cột đã tồn tại
+                }
+            } catch (SQLException e2) {
+                // Cột chưa tồn tại, thêm vào
+                String fallback = "ALTER TABLE users ADD COLUMN is_blocked BOOLEAN NOT NULL DEFAULT FALSE";
+                try (Connection connection = DatabaseConnection.getConnection();
+                     PreparedStatement ps3 = connection.prepareStatement(fallback)) {
+                    ps3.executeUpdate();
+                    System.out.println("✅ Đã thêm cột is_blocked vào bảng users");
+                } catch (SQLException e3) {
+                    // Bỏ qua nếu cột đã tồn tại
+                }
+            }
+        }
+    }
+
     // Tìm user theo ID
     public User findById(int id) {
         String query = "SELECT * FROM users WHERE user_id = ?";

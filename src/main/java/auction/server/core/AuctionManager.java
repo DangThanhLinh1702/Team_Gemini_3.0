@@ -64,4 +64,19 @@ public class AuctionManager {
     public Map<Integer, AuctionSession> getAllSessions() {
         return activeSessions;
     }
+
+    // Xóa phiên đấu giá khỏi RAM (khi ADMIN xóa sản phẩm)
+    public boolean removeSession(int itemId) {
+        return activeSessions.remove(itemId) != null;
+    }
+
+    // Cập nhật giá khởi điểm của phiên đấu giá trong RAM (khi ADMIN sửa sản phẩm)
+    public boolean updateSessionPrice(int itemId, double newStartingPrice) {
+        AuctionSession session = activeSessions.get(itemId);
+        if (session != null) {
+            session.setCurrentPrice(newStartingPrice);
+            return true;
+        }
+        return false;
+    }
 }

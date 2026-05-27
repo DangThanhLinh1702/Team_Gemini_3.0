@@ -3,6 +3,7 @@ package auction.client;
 import auction.client.ui.LoginView;
 import auction.client.ui.SignUpView;
 import auction.client.ui.AuctionUI;
+import auction.client.ui.LoginSuccessHandler;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -14,24 +15,35 @@ import javafx.stage.Stage;
  */
 public class ClientMain extends Application {
 
-    // Tạo một biến static để lưu trữ cửa sổ chính, giúp chuyển Scene dễ dàng hơn
     private static Stage window;
-    // Lưu trữ username hiện tại
     private static String currentUsername = null;
+
+    // =========================================================================
+    // ĐÃ THÊM: Biến static và hàm Getter/Setter để lưu trữ Token toàn cục
+    // =========================================================================
+    private static String jwtToken = null;
+
+    public static String getJwtToken() {
+        return jwtToken;
+    }
+
+    public static void setJwtToken(String token) {
+        jwtToken = token;
+    }
+    // =========================================================================
 
     @Override
     public void start(Stage primaryStage) throws Exception {
         window = primaryStage;
 
-        // Cài đặt chung cho cửa sổ
         window.setTitle("Auction App - Login");
         window.setMinWidth(600);
         window.setMinHeight(500);
 
-        // 1. Tải màn hình Login đầu tiên
-        // Truyền hàm showAuctionScreen vào LoginView để nó biết cần làm gì khi login thành công
-        // Truyền hàm showSignUpScreen để nó biết cần làm gì khi click Sign up
-        LoginView loginRoot = new LoginView((username, role) -> showAuctionScreen(username, role), this::showSignUpScreen);
+        LoginView loginRoot = new LoginView(
+                (username, role, token) -> showAuctionScreen(username, role, token),
+                this::showSignUpScreen
+        );
         Scene loginScene = new Scene(loginRoot, 800, 600);
 
         window.setScene(loginScene);
@@ -39,26 +51,29 @@ public class ClientMain extends Application {
     }
 
     /**
-     * Chuyển sang màn hình Auction và truyền username và role
+     * Chuyển sang màn hình Auction và truyền username, role cùng với token xác thực
      */
-    public void showAuctionScreen(String username, String role) {
+    public void showAuctionScreen(String username, String role, String token) {
         try {
-            // Lưu username hiện tại
             currentUsername = username;
+
+            // LƯU TOKEN VÀO BIẾN TOÀN CỤC NGAY KHI ĐĂNG NHẬP THÀNH CÔNG
+            ClientMain.setJwtToken(token);
 
             // Tải file FXML giao diện chính
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/auction/client/ui/AuctionUI.fxml"));
             Parent root = loader.load();
 
-            // Lấy controller của AuctionUI để truyền username
+            // Lấy controller của AuctionUI để truyền dữ liệu người dùng
             AuctionUI controller = loader.getController();
             if (controller != null && username != null) {
+                controller.setOnLogout(this::showLoginScreen); // truyền callback đăng xuất
                 controller.initializeWithUser(username, role);
+                controller.setJwtToken(token);
             }
 
             Scene auctionScene = new Scene(root, 940, 650);
 
-            // Chuyển cảnh trên cửa sổ hiện tại (window)
             window.setScene(auctionScene);
             window.setTitle("Hệ thống Đấu giá trực tuyến");
             window.centerOnScreen();
@@ -73,7 +88,7 @@ public class ClientMain extends Application {
      */
     public void showSignUpScreen() {
         try {
-            SignUpView signUpRoot = new SignUpView((username, role) -> showAuctionScreen(username, role), this::showLoginScreen);
+            SignUpView signUpRoot = new SignUpView((username, role) -> showAuctionScreen(username, role, null), this::showLoginScreen);
             Scene signUpScene = new Scene(signUpRoot, 800, 600);
 
             window.setScene(signUpScene);
@@ -90,7 +105,10 @@ public class ClientMain extends Application {
      */
     public void showLoginScreen() {
         try {
-            LoginView loginRoot = new LoginView((username, role) -> showAuctionScreen(username, role), this::showSignUpScreen);
+            LoginView loginRoot = new LoginView(
+                    (username, role, token) -> showAuctionScreen(username, role, token),
+                    this::showSignUpScreen
+            );
             Scene loginScene = new Scene(loginRoot, 800, 600);
 
             window.setScene(loginScene);

@@ -1,6 +1,8 @@
 package auction.shared.dto;
 
 public class ItemDTO {
+    // ➕ ĐÃ THÊM: Thuộc tính id để định danh sản phẩm giữa Client và Server
+    private int id;
     private String name;
     private String description;
     private double startingPrice;
@@ -8,6 +10,10 @@ public class ItemDTO {
     private String image; // Thuộc tính lưu trữ chuỗi Base64 ảnh từ Client
 
     public ItemDTO() {}
+
+    // ➕ ĐÃ THÊM: Getter và Setter cho id
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

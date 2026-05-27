@@ -21,7 +21,8 @@ public class ServerMain {
             // Các endpoints
             httpServer.createContext("/login", authHandler);
             httpServer.createContext("/register", authHandler);
-            httpServer.createContext("/users", authHandler);
+            httpServer.createContext("/users", authHandler);   // covers /users, /users/{name}/block, etc.
+            httpServer.createContext("/me", authHandler);
             httpServer.createContext("/items", itemHandler);         // GET + POST
             httpServer.createContext("/auctions", itemListHandler);  // GET
 
@@ -41,7 +42,7 @@ public class ServerMain {
             AuctionWebSocketServer wsServer = new AuctionWebSocketServer(8081);
             wsServer.start();
 
-            System.out.println("\n✓ WebSocket Server started on port 8081");
+            System.out.println("\n✓ WebSocket Server started on port 8080");
             System.out.println("  Actions: JOIN, BID");
 
             // 🌟 TẠO SẢN PHẨM MẪU (DUMMY DATA) TẠI ĐÂY 🌟
