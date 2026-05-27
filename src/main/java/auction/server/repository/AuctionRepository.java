@@ -13,19 +13,41 @@ import java.util.List;
 public class AuctionRepository {
 
     public void saveAuction(AuctionSession newAuction) {
-        String query = "INSERT INTO auctions (item_id, seller_id, start_time, end_time) VALUES (?, ?, ?, ?)";
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+        // Câu lệnh SQL đã được cập nhật để bao gồm đầy đủ tất cả các cột của bảng auctions
+        String query = "INSERT INTO auctions (item_id, seller_id, current_price, highest_bidder, is_finished, start_time, end_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query, java.sql.Statement.RETURN_GENERATED_KEYS)) {
+
+            // 1. Map các thông tin cơ bản
             preparedStatement.setInt(1, newAuction.getItemId());
             preparedStatement.setInt(2, newAuction.getSellerId());
-            preparedStatement.setTimestamp(3, newAuction.getStartTime());
-            preparedStatement.setTimestamp(4, newAuction.getEndTime());
+            preparedStatement.setDouble(3, newAuction.getCurrentPrice());
 
+            // 2. Map thông tin khởi tạo (Khi mới tạo phiên: chưa có người thắng, chưa kết thúc)
+            // Nếu trong Model AuctionSession của bạn có trường này, hãy dùng newAuction.getHighestBidder()
+            preparedStatement.setString(4, null);
+            preparedStatement.setBoolean(5, false); // Mặc định là FALSE giống cấu trúc DB của bạn
+
+            // 3. Map thời gian
+            preparedStatement.setTimestamp(6, newAuction.getStartTime());
+            preparedStatement.setTimestamp(7, newAuction.getEndTime());
+
+            // Thực thi lệnh lưu vào database
             preparedStatement.executeUpdate();
-            System.out.println("Đã thêm auction cho item_id: " + newAuction.getItemId());
+
+            // Lấy auction_id (AUTO_INCREMENT) vừa được tạo từ database và gán ngược lại vào đối tượng session
+            try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    newAuction.setAuctionId(generatedKeys.getInt(1));
+                }
+            }
+
+            System.out.println("🚀 [DATABASE LOG] Đã lưu thành công phiên đấu giá vào bảng 'auctions' | ID: " + newAuction.getAuctionId());
 
         } catch (SQLException exception) {
+            System.err.println("❌ Lỗi khi ghi log vào bảng auctions: " + exception.getMessage());
             exception.printStackTrace();
         }
     }

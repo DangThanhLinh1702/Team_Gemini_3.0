@@ -16,6 +16,22 @@ import auction.database.DatabaseConnection;
 
 public class UserRepository {
 
+    // Lấy user_id từ username
+    public int getUserIdByUsername(String username) {
+        String query = "SELECT user_id FROM users WHERE username = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, username);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt("user_id");
+            }
+        } catch (SQLException exception) {
+            exception.printStackTrace();
+        }
+        return -1;
+    }
+
     // Kiểm tra username đã tồn tại chưa
     public boolean isUsernameExist(String username) {
         String query = "SELECT 1 FROM users WHERE username = ?";

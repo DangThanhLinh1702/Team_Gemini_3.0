@@ -56,19 +56,32 @@ public class ItemHandler implements HttpHandler {
                 } catch (Exception e) {}
 
                 Item itemToSave = new Item(itemDTO.getName(), itemDTO.getDescription(), itemDTO.getStartingPrice(), sellerUsername, imageBase64, endTime);
+
+                // 1. Lưu sản phẩm (Phải chắc chắn hàm này nạp lại ID tự tăng cho itemToSave)
                 itemRepository.saveItem(itemToSave);
 
+                // 2. Kiểm tra nếu lưu sản phẩm thành công (ID > 0)
                 if (itemToSave.getId() > 0) {
+
+                    // 🔥 ĐÂY LÀ ĐOẠN ĐỔI TỪ USERNAME (STRING) SANG ID (INT)
+                    int sellerId = 1; // ID mặc định dự phòng (ví dụ: ID của hệ thống hoặc admin)
+                    var user = userService.getUserByUsername(sellerUsername);
+                    if (user != null) {
+                        sellerId = user.getId(); // Lấy ID dạng int từ đối tượng User ra
+                    }
+
+                    // 3. Truyền chuẩn dữ liệu int vào đây
                     AuctionManager.getInstance().createNewSession(
-                            itemToSave.getId(),
-                            itemToSave.getId(),
-                            itemToSave.getStartingPrice(),
-                            60
+                            itemToSave.getId(),            // itemId (int)
+                            sellerId,                      // sellerId (int) - ĐÃ SỬA CHUẨN XÁC!
+                            itemToSave.getStartingPrice(), // startPrice (double)
+                            60                             // duration (long)
                     );
+
                     HttpResponseUtil.sendHttpResponse(exchange, 201,
                             new ResponseDTO("success", "Thêm sản phẩm thành công!", itemToSave.getId()));
                 } else {
-                    HttpResponseUtil.sendHttpResponse(exchange, 500, new ResponseDTO("fail", "Lỗi CSDL"));
+                    HttpResponseUtil.sendHttpResponse(exchange, 500, new ResponseDTO("fail", "Lỗi CSDL: Không lấy được ID sản phẩm tự tăng"));
                 }
                 return;
             }

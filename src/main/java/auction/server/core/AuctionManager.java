@@ -1,6 +1,7 @@
 package auction.server.core;
 
 import auction.server.model.AuctionSession;
+import auction.server.repository.AuctionRepository;
 
 import java.sql.Timestamp;
 import java.util.Map;
@@ -15,6 +16,7 @@ public class AuctionManager {
     private final Map<Integer, AuctionSession> activeSessions; // dùng int thay vì String
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5);
     private Consumer<AuctionSession> onAuctionFinishedCallback;
+    private final AuctionRepository auctionRepository = new AuctionRepository();
 
     private AuctionManager() {
         activeSessions = new ConcurrentHashMap<>();
@@ -43,6 +45,9 @@ public class AuctionManager {
 
         AuctionSession session = new AuctionSession(itemId, sellerId, startPrice, startTime, endTime);
         activeSessions.put(itemId, session);
+
+        // Lưu phiên đấu giá vào database
+        auctionRepository.saveAuction(session);
 
         scheduler.schedule(() -> {
             session.finishAuction();

@@ -3,6 +3,7 @@ package auction.server.core;
 import auction.server.model.AuctionSession;
 import auction.server.model.Item;
 import auction.server.service.ItemService;
+import auction.server.repository.UserRepository;
 import auction.shared.dto.WebSocketRequestDTO;
 import auction.shared.util.JwtUtil;
 import com.auth0.jwt.interfaces.DecodedJWT;
@@ -20,6 +21,7 @@ public class AuctionWebSocketServer extends WebSocketServer {
     // itemId → set of connected clients trong phòng đó
     private final ConcurrentHashMap<Integer, Set<WebSocket>> auctionRooms = new ConcurrentHashMap<>();
     private final ItemService itemService = new ItemService();
+    private final UserRepository userRepository = new UserRepository();
 
     public AuctionWebSocketServer(int port) {
         super(new InetSocketAddress(port));
@@ -120,9 +122,17 @@ public class AuctionWebSocketServer extends WebSocketServer {
             List<Item> allItems = itemService.getAllItem();
             Item newItem = allItems.get(allItems.size() - 1);
             int realId = newItem.getId();
-            int sellerId = newItem.getSellerUserName().hashCode();
+            int sellerId = userRepository.getUserIdByUsername(username);
+            if (sellerId == -1) {
+                sendError(webSocket, "Không tìm thấy thông tin người bán trong hệ thống!");
+                return;
+            }
 
             AuctionManager.getInstance().createNewSession(realId, sellerId, request.getPrice(), duration);
+
+            // Tự động JOIN seller vào phòng để nhận cập nhật giá realtime
+            auctionRooms.putIfAbsent(realId, ConcurrentHashMap.newKeySet());
+            auctionRooms.get(realId).add(webSocket);
 
             Map<String, Object> data = new HashMap<>();
             data.put("type", "NEW_ITEM_ADDED");
