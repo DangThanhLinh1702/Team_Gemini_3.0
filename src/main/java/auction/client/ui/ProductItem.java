@@ -24,6 +24,9 @@ public class ProductItem {
     // ĐÂY LÀ BIẾN MỚI ĐỂ LƯU ẢNH
     private String imageBase64;
 
+    // ĐÂY LÀ BIẾN MỚI CHO THỜI GIAN ĐẾM NGƯỢC
+    private final StringProperty countdownText;
+
     public ProductItem(String productId, String productName, long rawPrice, String leader, String status, String seller, long endTime) {
         this.productId    = productId;
         this.productName  = new SimpleStringProperty(productName);
@@ -33,6 +36,7 @@ public class ProductItem {
         this.status       = new SimpleStringProperty(status);
         this.seller       = seller;
         this.endTime      = endTime;
+        this.countdownText = new SimpleStringProperty("Đang tính...");
     }
 
     /** Format giá tiền theo chuẩn Việt Nam: 10.000.000 VNĐ */
@@ -71,4 +75,8 @@ public class ProductItem {
     // GETTER & SETTER CHO ẢNH
     public String getImageBase64() { return imageBase64; }
     public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
+
+    public String getCountdownText() { return countdownText.get(); }
+    public void setCountdownText(String text) { this.countdownText.set(text); }
+    public StringProperty countdownTextProperty() { return countdownText; }
 }

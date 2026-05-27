@@ -43,6 +43,60 @@ public class AuctionManager {
     private AuctionManager() {
         // Đảm bảo bảng bid_history tồn tại ngay khi manager khởi động
         bidHistoryRepository.ensureTableExists();
+
+        // Tải các phiên đấu giá đang diễn ra từ DB lên RAM
+        loadActiveSessionsFromDb();
+    }
+
+    private void loadActiveSessionsFromDb() {
+        List<AuctionSession> allSessions = auctionRepository.getAllAuctions();
+        long now = System.currentTimeMillis();
+        for (AuctionSession session : allSessions) {
+            if (!session.isFinished() && session.getEndTime().getTime() > now) {
+                activeSessions.put(session.getItemId(), session);
+
+                // Nạp lịch sử bid
+                List<String> history = bidHistoryRepository.getBidHistoryByItem(session.getItemId());
+                if (!history.isEmpty()) {
+                    session.loadBidHistory(history);
+                }
+
+                // Lên lịch tự kết thúc
+                long delaySeconds = (session.getEndTime().getTime() - now) / 1000;
+                scheduler.schedule(() -> {
+                    session.finishAuction();
+                    System.out.println("🏁 Hết giờ (Restore)! item_id=" + session.getItemId()
+                            + " | Người thắng: " + session.getHighestBidder()
+                            + " | Giá: " + String.format("%,.0f", session.getCurrentPrice()) + " VNĐ");
+
+                    auctionRepository.finishAuction(session.getAuctionId(),
+                            session.getCurrentPrice(), session.getHighestBidder());
+
+                    String endLine = String.format("[%s] ⏰ Phiên kết thúc — Người thắng: %s với giá %,.0f VNĐ",
+                            SDF.format(new Timestamp(System.currentTimeMillis())),
+                            session.getHighestBidder(), session.getCurrentPrice());
+                    bidHistoryRepository.saveBid(
+                            session.getAuctionId(), session.getItemId(),
+                            session.getHighestBidder(),
+                            session.getCurrentPrice(),
+                            endLine);
+
+                    if (onAuctionFinishedCallback != null) {
+                        onAuctionFinishedCallback.accept(session);
+                    }
+                }, delaySeconds, TimeUnit.SECONDS);
+
+                System.out.println("🔄 Khôi phục phiên | item_id=" + session.getItemId()
+                        + " | auction_id=" + session.getAuctionId()
+                        + " | còn lại=" + delaySeconds + "s");
+            } else if (!session.isFinished()) {
+                // Đã quá hạn trong lúc server tắt -> Kết thúc luôn
+                session.finishAuction();
+                auctionRepository.finishAuction(session.getAuctionId(),
+                        session.getCurrentPrice(), session.getHighestBidder());
+                System.out.println("🏁 Đóng phiên quá hạn | item_id=" + session.getItemId());
+            }
+        }
     }
 
     public static synchronized AuctionManager getInstance() {

@@ -224,7 +224,7 @@ public class AuctionWebSocketServer extends WebSocketServer {
         Map<String, Object> resp = new HashMap<>();
         resp.put("status", "success");
         resp.put("data",   data);
-        broadcast(gson.toJson(resp));
+        broadcastMessage(gson.toJson(resp));
 
         System.out.println("📦 Sản phẩm mới | item_id=" + itemId + " | người bán=" + username);
     }
@@ -382,7 +382,20 @@ public class AuctionWebSocketServer extends WebSocketServer {
         Map<String, Object> resp = new HashMap<>();
         resp.put("status", "success");
         resp.put("data",   data);
-        broadcast(gson.toJson(resp));
+        broadcastMessage(gson.toJson(resp));
+    }
+
+    /** Broadcast tin nhắn đến tất cả các client với xử lý lỗi */
+    private void broadcastMessage(String message) {
+        for (WebSocket client : getConnections()) {
+            if (client.isOpen()) {
+                try {
+                    client.send(message);
+                } catch (Exception e) {
+                    System.err.println("❌ Lỗi khi broadcast tới client: " + e.getMessage());
+                }
+            }
+        }
     }
 
     /** Gửi thông báo lỗi về client */

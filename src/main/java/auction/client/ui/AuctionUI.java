@@ -118,6 +118,20 @@ public class AuctionUI implements Initializable {
             } else {
                 lblCountdown.setText("00:00");
             }
+
+            // Cập nhật đếm ngược cho tất cả các thẻ trong grid
+            for (ProductItem p : productList) {
+                if (!"Kết thúc".equals(p.getStatus())) {
+                    long tr = p.getEndTime() - System.currentTimeMillis();
+                    if (tr > 0) {
+                        long sec = tr / 1000;
+                        p.setCountdownText(String.format("⏳ %02d:%02d", (sec % 3600) / 60, sec % 60));
+                    } else {
+                        p.setCountdownText("❌ Đã kết thúc");
+                        p.setStatus("Kết thúc");
+                    }
+                }
+            }
         }));
         timeline.setCycleCount(Timeline.INDEFINITE);
         timeline.play();
@@ -209,6 +223,7 @@ public class AuctionUI implements Initializable {
         for (ProductItem item : productList) {
             if (item.getProductId().equals(itemId)) {
                 item.setStatus("Kết thúc");
+                item.setCountdownText("❌ Đã kết thúc");
                 break;
             }
         }
@@ -217,6 +232,9 @@ public class AuctionUI implements Initializable {
             lblCountdown.setText("00:00 (Kết thúc)");
             // Đổi màu countdown sang đỏ để rõ ràng hơn
             lblCountdown.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            lblLeader.setStyle("-fx-text-fill: #c0392b; -fx-font-size: 14px; -fx-font-weight: bold;");
+            lblLeader.setText("👑 WINNER: " + selectedProduct.getLeader());
+            lblLeader.textProperty().unbind(); // Ngắt binding để giữ chữ WINNER
             appendLog("Phiên đấu giá sản phẩm ID=" + itemId + " đã kết thúc.");
         }
     }
@@ -283,8 +301,14 @@ public class AuctionUI implements Initializable {
         lblCurrentPrice.textProperty().bind(product.currentPriceProperty());
 
         lblLeader.textProperty().unbind();
-        lblLeader.setText(product.getLeader());
-        lblLeader.textProperty().bind(product.leaderProperty());
+        if ("Kết thúc".equals(product.getStatus())) {
+            lblLeader.setText("👑 WINNER: " + product.getLeader());
+            lblLeader.setStyle("-fx-text-fill: #c0392b; -fx-font-size: 14px; -fx-font-weight: bold;");
+        } else {
+            lblLeader.setText(product.getLeader());
+            lblLeader.textProperty().bind(product.leaderProperty());
+            lblLeader.setStyle(""); // Reset CSS nếu có
+        }
 
         // Ảnh
         if (imgDetailPreview != null) {
@@ -470,7 +494,31 @@ public class AuctionUI implements Initializable {
         leaderLbl.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 11px;");
         leaderLbl.setWrapText(true);
 
-        card.getChildren().addAll(imgBox, nameLbl, priceLbl, leaderLbl);
+        Label countdownLbl = new Label();
+        countdownLbl.textProperty().bind(item.countdownTextProperty());
+        countdownLbl.setStyle("-fx-text-fill: #8e44ad; -fx-font-weight: bold; -fx-font-size: 11px;");
+
+        card.getChildren().addAll(imgBox, nameLbl, priceLbl, leaderLbl, countdownLbl);
+
+        // Lắng nghe sự kiện kết thúc phiên để cập nhật UI của card
+        item.statusProperty().addListener((obs, oldVal, newVal) -> {
+            if ("Kết thúc".equals(newVal)) {
+                card.setStyle("-fx-background-color: #f9ecec; -fx-border-color: #e74c3c; -fx-border-width: 2px; -fx-border-radius: 8; -fx-padding: 10; -fx-cursor: hand;");
+                countdownLbl.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 11px;");
+                leaderLbl.textProperty().unbind();
+                leaderLbl.setStyle("-fx-text-fill: #c0392b; -fx-font-size: 12px; -fx-font-weight: bold;");
+                leaderLbl.setText("👑 WINNER: " + item.getLeader());
+            }
+        });
+
+        // Khởi tạo UI nếu đã kết thúc ngay từ đầu
+        if ("Kết thúc".equals(item.getStatus())) {
+            card.setStyle("-fx-background-color: #f9ecec; -fx-border-color: #e74c3c; -fx-border-width: 2px; -fx-border-radius: 8; -fx-padding: 10; -fx-cursor: hand;");
+            countdownLbl.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 11px;");
+            leaderLbl.textProperty().unbind();
+            leaderLbl.setStyle("-fx-text-fill: #c0392b; -fx-font-size: 12px; -fx-font-weight: bold;");
+            leaderLbl.setText("👑 WINNER: " + item.getLeader());
+        }
 
         // Nút ADMIN
         if ("ADMIN".equalsIgnoreCase(currentRole)) {
