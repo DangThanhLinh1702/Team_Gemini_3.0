@@ -102,4 +102,15 @@ public class AuctionSession {
 
     /** Trả về bản sao danh sách lịch sử (tránh bị sửa từ bên ngoài) */
     public List<String> getBidHistory()    { return new ArrayList<>(bidHistory); }
+
+    /**
+     * Nạp lại lịch sử từ DB vào RAM (gọi sau khi server khởi động lại).
+     * Xóa dữ liệu cũ trong RAM trước khi nạp để tránh trùng lặp.
+     */
+    public synchronized void loadBidHistory(List<String> history) {
+        bidHistory.clear();
+        if (history != null) {
+            bidHistory.addAll(history);
+        }
+    }
 }

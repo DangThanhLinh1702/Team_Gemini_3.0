@@ -96,6 +96,8 @@ public class AuctionUI implements Initializable {
         this.currentRole = role;
         controller = new AuctionController(this, username, jwtToken != null ? jwtToken : "");
         updateRoleUI();
+        // Ẩn nút Refresh — WebSocket tự động gửi dữ liệu realtime
+        if (btnRefresh != null) btnRefresh.setVisible(false);
         Platform.runLater(this::handleRefresh);
     }
 
@@ -187,23 +189,34 @@ public class AuctionUI implements Initializable {
 
     /**
      * Cập nhật listBidHistory trong detail panel.
-     * Chỉ hiển thị nếu đang xem sản phẩm có itemId khớp.
+     * Hiển thị lịch sử cho bất kỳ phiên nào (đang chạy hoặc đã kết thúc).
      */
     public void updateBidHistory(String itemId, List<String> history) {
         if (listBidHistory == null) return;
         if (selectedProduct == null || !selectedProduct.getProductId().equals(itemId)) return;
-        listBidHistory.getItems().setAll(history);
-        // Cuộn xuống mục mới nhất
-        if (!history.isEmpty()) {
-            listBidHistory.scrollTo(history.size() - 1);
-        }
+        Platform.runLater(() -> {
+            listBidHistory.getItems().setAll(history);
+            // Cuộn xuống mục mới nhất
+            if (!history.isEmpty()) {
+                listBidHistory.scrollTo(history.size() - 1);
+            }
+        });
     }
 
-    /** Disable nút đấu giá khi phiên kết thúc */
+    /** Disable nút đấu giá khi phiên kết thúc, hiển thị banner kết thúc */
     public void markAuctionFinished(String itemId) {
+        // Cập nhật card trên grid
+        for (ProductItem item : productList) {
+            if (item.getProductId().equals(itemId)) {
+                item.setStatus("Kết thúc");
+                break;
+            }
+        }
         if (selectedProduct != null && selectedProduct.getProductId().equals(itemId)) {
             btnBid.setDisable(true);
             lblCountdown.setText("00:00 (Kết thúc)");
+            // Đổi màu countdown sang đỏ để rõ ràng hơn
+            lblCountdown.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
             appendLog("Phiên đấu giá sản phẩm ID=" + itemId + " đã kết thúc.");
         }
     }

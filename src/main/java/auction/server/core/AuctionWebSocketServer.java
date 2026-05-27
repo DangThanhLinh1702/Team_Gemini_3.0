@@ -234,21 +234,25 @@ public class AuctionWebSocketServer extends WebSocketServer {
     /**
      * Xử lý JOIN:
      * - Thêm client vào phòng
-     * - Gửi ngay SESSION_STATE (giá hiện tại + người dẫn đầu + toàn bộ lịch sử)
+     * - Gửi ngay SESSION_STATE với lịch sử đầy đủ từ DB
+     *   (hoạt động cả khi phiên đã kết thúc hoặc server vừa restart)
      */
     private void handleJoinRoom(WebSocket ws, int itemId, String username) {
         auctionRooms.putIfAbsent(itemId, ConcurrentHashMap.newKeySet());
         auctionRooms.get(itemId).add(ws);
 
-        // Gửi trạng thái phiên hiện tại cho client vừa JOIN
+        // Luôn lấy lịch sử từ DB để đảm bảo đầy đủ sau restart / phiên kết thúc
+        java.util.List<String> historyFromDb = AuctionManager.getInstance().getBidHistoryFromDb(itemId);
+
         AuctionSession session = AuctionManager.getInstance().getSession(itemId);
         if (session != null) {
+            // Phiên vẫn còn trong RAM (đang chạy hoặc vừa kết thúc trong session hiện tại)
             Map<String, Object> data = new HashMap<>();
             data.put("type",           "SESSION_STATE");
             data.put("itemId",         itemId);
             data.put("currentPrice",   session.getCurrentPrice());
             data.put("highestBidder",  session.getHighestBidder());
-            data.put("bidHistory",     session.getBidHistory()); // Toàn bộ lịch sử trong RAM
+            data.put("bidHistory",     historyFromDb.isEmpty() ? session.getBidHistory() : historyFromDb);
             data.put("isFinished",     session.isFinished());
             data.put("endTime",        session.getEndTime().getTime());
 
@@ -256,6 +260,33 @@ public class AuctionWebSocketServer extends WebSocketServer {
             resp.put("status", "success");
             resp.put("data",   data);
             ws.send(gson.toJson(resp));
+        } else if (!historyFromDb.isEmpty()) {
+            // Phiên không còn trong RAM nhưng DB có lịch sử → phiên đã kết thúc từ trước
+            // Lấy thông tin phiên từ bảng auctions
+            auction.server.repository.AuctionRepository auctionRepo =
+                    new auction.server.repository.AuctionRepository();
+            // Tìm phiên theo item_id bằng cách lấy tất cả và filter
+            java.util.List<AuctionSession> allSessions = auctionRepo.getAllAuctions();
+            AuctionSession pastSession = allSessions.stream()
+                    .filter(s -> s.getItemId() == itemId)
+                    .reduce((first, second) -> second) // lấy session mới nhất
+                    .orElse(null);
+
+            if (pastSession != null) {
+                Map<String, Object> data = new HashMap<>();
+                data.put("type",           "SESSION_STATE");
+                data.put("itemId",         itemId);
+                data.put("currentPrice",   pastSession.getCurrentPrice());
+                data.put("highestBidder",  pastSession.getHighestBidder());
+                data.put("bidHistory",     historyFromDb);
+                data.put("isFinished",     true);
+                data.put("endTime",        pastSession.getEndTime().getTime());
+
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("status", "success");
+                resp.put("data",   data);
+                ws.send(gson.toJson(resp));
+            }
         }
 
         System.out.println("👤 " + username + " đã JOIN phòng item_id=" + itemId);

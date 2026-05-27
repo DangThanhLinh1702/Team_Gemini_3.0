@@ -2,8 +2,11 @@ package auction.server.core;
 
 import auction.server.model.AuctionSession;
 import auction.server.repository.AuctionRepository;
+import auction.server.repository.BidHistoryRepository;
 
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -15,8 +18,9 @@ import java.util.function.Consumer;
  * Singleton quản lý tất cả phiên đấu giá đang hoạt động trong RAM.
  * Chịu trách nhiệm:
  * - Tạo phiên mới (createNewSession)
- * - Xử lý đặt giá (placeBid) và đồng bộ vào DB ngay lập tức
+ * - Xử lý đặt giá (placeBid): cập nhật RAM + lưu bid_history DB + cập nhật auctions DB
  * - Tự động kết thúc phiên khi hết giờ và lưu kết quả vào DB
+ * - Restore lịch sử bid từ DB vào RAM khi session được tạo lại
  */
 public class AuctionManager {
 
@@ -31,10 +35,14 @@ public class AuctionManager {
     // Callback gửi thông báo kết thúc về cho WebSocket server → broadcast client
     private Consumer<AuctionSession> onAuctionFinishedCallback;
 
-    private final AuctionRepository auctionRepository = new AuctionRepository();
+    private final AuctionRepository auctionRepository     = new AuctionRepository();
+    private final BidHistoryRepository bidHistoryRepository = new BidHistoryRepository();
+
+    private static final SimpleDateFormat SDF = new SimpleDateFormat("HH:mm:ss");
 
     private AuctionManager() {
-        // Không tạo session demo cứng — chỉ tạo session khi có item thật từ DB
+        // Đảm bảo bảng bid_history tồn tại ngay khi manager khởi động
+        bidHistoryRepository.ensureTableExists();
     }
 
     public static synchronized AuctionManager getInstance() {
@@ -62,18 +70,34 @@ public class AuctionManager {
         // 1. Lưu phiên mới vào DB → DB sẽ gán auction_id và gán ngược vào session
         auctionRepository.saveAuction(session);
 
-        // 2. Lên lịch tự động kết thúc phiên sau durationSeconds giây
+        // 2. Nạp lịch sử bid cũ từ DB vào RAM (phòng trường hợp item đã tồn tại bid)
+        List<String> existingHistory = bidHistoryRepository.getBidHistoryByItem(itemId);
+        if (!existingHistory.isEmpty()) {
+            session.loadBidHistory(existingHistory);
+        }
+
+        // 3. Lên lịch tự động kết thúc phiên sau durationSeconds giây
         scheduler.schedule(() -> {
             session.finishAuction();
             System.out.println("🏁 Hết giờ! item_id=" + itemId
                     + " | Người thắng: " + session.getHighestBidder()
                     + " | Giá: " + String.format("%,.0f", session.getCurrentPrice()) + " VNĐ");
 
-            // 3. Lưu kết quả cuối vào DB
+            // Lưu kết thúc vào bảng auctions
             auctionRepository.finishAuction(session.getAuctionId(),
                     session.getCurrentPrice(), session.getHighestBidder());
 
-            // 4. Thông báo cho WebSocket server để broadcast AUCTION_ENDED đến client
+            // Lưu dòng "Phiên kết thúc" vào bid_history để hiển thị lại sau
+            String endLine = String.format("[%s] ⏰ Phiên kết thúc — Người thắng: %s với giá %,.0f VNĐ",
+                    SDF.format(new Timestamp(System.currentTimeMillis())),
+                    session.getHighestBidder(), session.getCurrentPrice());
+            bidHistoryRepository.saveBid(
+                    session.getAuctionId(), itemId,
+                    session.getHighestBidder(),
+                    session.getCurrentPrice(),
+                    endLine);
+
+            // Thông báo cho WebSocket server để broadcast AUCTION_ENDED đến client
             if (onAuctionFinishedCallback != null) {
                 onAuctionFinishedCallback.accept(session);
             }
@@ -87,7 +111,7 @@ public class AuctionManager {
 
     /**
      * Đặt giá cho một phiên đấu giá.
-     * Nếu hợp lệ: cập nhật RAM → cập nhật DB ngay lập tức → trả về true.
+     * Nếu hợp lệ: cập nhật RAM → lưu bid_history DB → cập nhật auctions DB → trả về true.
      *
      * @param itemId   ID sản phẩm
      * @param username Người đặt giá
@@ -98,13 +122,33 @@ public class AuctionManager {
         AuctionSession session = activeSessions.get(itemId);
         if (session == null) return false;
 
+        // Lưu displayText trước khi placeBid (để lấy đúng timestamp tại thời điểm bid)
+        String timeStr = SDF.format(new Timestamp(System.currentTimeMillis()));
+        String displayText = String.format("[%s] %s → %,.0f VNĐ", timeStr, username, newPrice);
+
         boolean success = session.placeBid(username, newPrice);
         if (success) {
-            // Đồng bộ giá mới vào DB ngay sau khi đặt thành công
+            // Lưu từng bid vào bảng bid_history ngay lập tức
+            bidHistoryRepository.saveBid(
+                    session.getAuctionId(), itemId,
+                    username, newPrice, displayText);
+
+            // Cập nhật giá hiện tại vào bảng auctions
             auctionRepository.updateBid(session.getAuctionId(),
                     session.getCurrentPrice(), session.getHighestBidder());
         }
         return success;
+    }
+
+    /**
+     * Lấy lịch sử bid từ DB (dùng khi JOIN phòng để trả về lịch sử đầy đủ,
+     * kể cả khi phiên đã kết thúc hoặc server vừa restart).
+     *
+     * @param itemId ID sản phẩm
+     * @return Danh sách chuỗi lịch sử, sắp xếp cũ → mới
+     */
+    public List<String> getBidHistoryFromDb(int itemId) {
+        return bidHistoryRepository.getBidHistoryByItem(itemId);
     }
 
     public void setOnAuctionEndCallback(Consumer<AuctionSession> callback) {
