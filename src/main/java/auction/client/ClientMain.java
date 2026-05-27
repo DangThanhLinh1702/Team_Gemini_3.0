@@ -68,8 +68,8 @@ public class ClientMain extends Application {
             AuctionUI controller = loader.getController();
             if (controller != null && username != null) {
                 controller.setOnLogout(this::showLoginScreen); // truyền callback đăng xuất
+                controller.setJwtToken(token); // Phải set token TRƯỚC khi initializeWithUser vì init sẽ tạo WebSocket dùng token này
                 controller.initializeWithUser(username, role);
-                controller.setJwtToken(token);
             }
 
             Scene auctionScene = new Scene(root, 940, 650);
