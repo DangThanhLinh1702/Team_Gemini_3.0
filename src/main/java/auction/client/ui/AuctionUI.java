@@ -94,8 +94,7 @@ public class AuctionUI implements Initializable {
     public void initializeWithUser(String username, String role) {
         this.currentUsername = username;
         this.currentRole = role;
-        controller = new AuctionController(this, username);
-        if (jwtToken != null) controller.setJwtToken(jwtToken);
+        controller = new AuctionController(this, username, jwtToken != null ? jwtToken : "");
         updateRoleUI();
         Platform.runLater(this::handleRefresh);
     }
