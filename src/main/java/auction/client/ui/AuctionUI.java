@@ -2,6 +2,10 @@ package auction.client.ui;
 
 import auction.client.controller.AuctionController;
 import auction.client.network.AdminItemClient;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -55,6 +59,8 @@ public class AuctionUI implements Initializable {
     @FXML
     private Button btnChangeRole;
     @FXML
+    private Button btnManageUsers;
+    @FXML
     private TextArea txtLog;
 
     @FXML
@@ -80,9 +86,15 @@ public class AuctionUI implements Initializable {
     private String currentUsername;
     private String currentRole;
     private String jwtToken; // Lưu token để truyền cho các lệnh ADMIN
+    private Runnable onLogout; // Callback để quay về màn hình Login
 
     public void setJwtToken(String token) {
         this.jwtToken = token;
+    }
+
+    /** Đặt callback đăng xuất — ClientMain truyền vào */
+    public void setOnLogout(Runnable onLogout) {
+        this.onLogout = onLogout;
     }
 
     @Override
@@ -120,13 +132,15 @@ public class AuctionUI implements Initializable {
         Platform.runLater(() -> {
             lblCurrentUser.setText(currentUsername + " (" + currentRole + ")");
             if ("ADMIN".equalsIgnoreCase(currentRole)) {
-                // ADMIN: ẩn hết chức năng của Bidder và Seller
-                if (btnPostItem != null) btnPostItem.setVisible(false);
-                if (btnChangeRole != null) btnChangeRole.setVisible(false);
+                // ADMIN: ẩn hết chức năng của Bidder và Seller, hiện quản lý user
+                if (btnPostItem    != null) btnPostItem.setVisible(false);
+                if (btnChangeRole  != null) btnChangeRole.setVisible(false);
+                if (btnManageUsers != null) btnManageUsers.setVisible(true);
                 btnBid.setDisable(true);
             } else {
-                if (btnPostItem != null) btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
-                if (btnChangeRole != null) btnChangeRole.setVisible(true);
+                if (btnPostItem    != null) btnPostItem.setVisible("SELLER".equalsIgnoreCase(currentRole));
+                if (btnChangeRole  != null) btnChangeRole.setVisible(true);
+                if (btnManageUsers != null) btnManageUsers.setVisible(false);
                 btnBid.setDisable("SELLER".equalsIgnoreCase(currentRole));
             }
         });
@@ -213,8 +227,7 @@ public class AuctionUI implements Initializable {
         Platform.runLater(() -> {
             for (ProductItem item : productList) {
                 if (item.getProductId().equals(productId)) {
-                    item.setRawPrice((long) newPrice);
-                    item.setCurrentPrice(String.format("%,.0f VNĐ", newPrice));
+                    item.setRawPrice((long) newPrice); // setRawPrice tự cập nhật currentPriceProperty
                     item.setLeader(leader);
                     break;
                 }
@@ -516,8 +529,7 @@ public class AuctionUI implements Initializable {
                 Platform.runLater(() -> {
                     if (res.success) {
                         // Cập nhật card ngay trên UI không cần refresh
-                        item.setRawPrice((long) finalPrice);
-                        item.setCurrentPrice(String.format("%,d VNĐ", (long) finalPrice));
+                        item.setRawPrice((long) finalPrice); // tự cập nhật currentPriceProperty
 
                         // Cập nhật label tên trên card
                         card.getChildren().stream()
@@ -553,5 +565,169 @@ public class AuctionUI implements Initializable {
             a.setContentText(content);
             a.showAndWait();
         });
+    }
+
+    // ── ĐĂNG XUẤT ────────────────────────────────────────────────────────────
+    @FXML
+    private void handleLogout() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Đăng xuất");
+        confirm.setHeaderText(null);
+        confirm.setContentText("Bạn có chắc muốn đăng xuất không?");
+        ButtonType btnYes = new ButtonType("Đăng xuất", ButtonBar.ButtonData.OK_DONE);
+        ButtonType btnNo  = new ButtonType("Hủy",       ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirm.getButtonTypes().setAll(btnYes, btnNo);
+        confirm.showAndWait().ifPresent(result -> {
+            if (result == btnYes) {
+                // Xóa token toàn cục
+                auction.client.ClientMain.setJwtToken(null);
+                if (onLogout != null) {
+                    Platform.runLater(onLogout);
+                }
+            }
+        });
+    }
+
+    // ── ADMIN: Mở cửa sổ quản lý User ───────────────────────────────────────
+    @FXML
+    private void handleManageUsers() {
+        if (controller == null) return;
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Quản lý tài khoản người dùng");
+        dialog.setMinWidth(620);
+        dialog.setMinHeight(420);
+
+        Label loading = new Label("⏳ Đang tải danh sách...");
+        loading.setStyle("-fx-font-size: 14px; -fx-text-fill: #7f8c8d;");
+        VBox root = new VBox(12, loading);
+        root.setPadding(new Insets(20));
+        root.setStyle("-fx-background-color: #f9f9f9;");
+        dialog.setScene(new Scene(root));
+        dialog.show();
+
+        new Thread(() -> {
+            AdminItemClient.Result res = controller.fetchUsers();
+            Platform.runLater(() -> {
+                root.getChildren().clear();
+                if (!res.success) {
+                    root.getChildren().add(new Label("❌ Lỗi: " + res.message));
+                    return;
+                }
+                try {
+                    // Parse JSON trả về: { status, message, data: [ {username, role, ...}, ... ] }
+                    JsonObject json = new Gson().fromJson(res.message, JsonObject.class);
+                    JsonArray users = json.has("data") ? json.getAsJsonArray("data") : new JsonArray();
+
+                    Label title = new Label("👥 Danh sách người dùng (" + users.size() + ")");
+                    title.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+
+                    ScrollPane scroll = new ScrollPane();
+                    scroll.setFitToWidth(true);
+                    VBox userList = new VBox(8);
+                    userList.setPadding(new Insets(5));
+
+                    for (JsonElement el : users) {
+                        JsonObject u = el.getAsJsonObject();
+                        String uname = u.has("username") ? u.get("username").getAsString() : "?";
+                        String urole  = u.has("role")     ? u.get("role").getAsString()     : "?";
+
+                        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(10);
+                        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                        row.setStyle("-fx-background-color: white; -fx-border-color: #dce1e7; "
+                                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12;");
+
+                        Label lblUser = new Label(uname);
+                        lblUser.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-min-width: 160;");
+                        Label lblRole = new Label("[" + urole + "]");
+                        lblRole.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 12px; -fx-min-width: 80;");
+
+                        javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
+                        javafx.scene.layout.HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+
+                        // Không cho ADMIN tự xóa/block chính mình
+                        if (uname.equalsIgnoreCase(currentUsername) || "ADMIN".equalsIgnoreCase(urole)) {
+                            Label lblSelf = new Label("(tài khoản này không thể chỉnh sửa)");
+                            lblSelf.setStyle("-fx-text-fill: #bdc3c7; -fx-font-size: 11px;");
+                            row.getChildren().addAll(lblUser, lblRole, spacer, lblSelf);
+                        } else {
+                            Button btnBlock = new Button("🔒 Block");
+                            Button btnDelete = new Button("🗑 Xóa");
+                            btnBlock.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; "
+                                    + "-fx-background-radius: 4; -fx-font-size: 11px; -fx-cursor: hand;");
+                            btnDelete.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; "
+                                    + "-fx-background-radius: 4; -fx-font-size: 11px; -fx-cursor: hand;");
+
+                            btnBlock.setOnAction(e -> {
+                                boolean isBlocked = btnBlock.getText().contains("Block");
+                                String action = isBlocked ? "block" : "unblock";
+                                btnBlock.setDisable(true);
+                                new Thread(() -> {
+                                    AdminItemClient.Result r = isBlocked
+                                            ? controller.blockUser(uname)
+                                            : controller.unblockUser(uname);
+                                    Platform.runLater(() -> {
+                                        btnBlock.setDisable(false);
+                                        if (r.success) {
+                                            btnBlock.setText(isBlocked ? "🔓 Unblock" : "🔒 Block");
+                                            btnBlock.setStyle(isBlocked
+                                                    ? "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-background-radius: 4; -fx-font-size: 11px; -fx-cursor: hand;"
+                                                    : "-fx-background-color: #e67e22; -fx-text-fill: white; -fx-background-radius: 4; -fx-font-size: 11px; -fx-cursor: hand;");
+                                            showNotification((isBlocked ? "🔒 Đã block: " : "🔓 Đã unblock: ") + uname, "info");
+                                            appendLog("[ADMIN] " + (isBlocked ? "Block" : "Unblock") + " tài khoản: " + uname);
+                                        } else {
+                                            showAlert(Alert.AlertType.ERROR, "Thất bại", r.message);
+                                        }
+                                    });
+                                }, "admin-block-thread").start();
+                            });
+
+                            btnDelete.setOnAction(e -> {
+                                Alert conf = new Alert(Alert.AlertType.CONFIRMATION);
+                                conf.setTitle("Xác nhận xóa tài khoản");
+                                conf.setContentText("Xóa tài khoản \"" + uname + "\"? Hành động này không thể hoàn tác.");
+                                ButtonType yes = new ButtonType("Xóa", ButtonBar.ButtonData.OK_DONE);
+                                ButtonType no  = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
+                                conf.getButtonTypes().setAll(yes, no);
+                                conf.getDialogPane().lookupButton(yes)
+                                        .setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white;");
+                                conf.showAndWait().ifPresent(r -> {
+                                    if (r == yes) {
+                                        btnDelete.setDisable(true);
+                                        new Thread(() -> {
+                                            AdminItemClient.Result dr = controller.deleteUser(uname);
+                                            Platform.runLater(() -> {
+                                                if (dr.success) {
+                                                    userList.getChildren().remove(row);
+                                                    showNotification("✅ Đã xóa tài khoản: " + uname, "success");
+                                                    appendLog("[ADMIN] Đã xóa tài khoản: " + uname);
+                                                } else {
+                                                    btnDelete.setDisable(false);
+                                                    showAlert(Alert.AlertType.ERROR, "Xóa thất bại", dr.message);
+                                                }
+                                            });
+                                        }, "admin-delete-user-thread").start();
+                                    }
+                                });
+                            });
+
+                            row.getChildren().addAll(lblUser, lblRole, spacer, btnBlock, btnDelete);
+                        }
+                        userList.getChildren().add(row);
+                    }
+
+                    scroll.setContent(userList);
+                    Button btnClose = new Button("✖ Đóng");
+                    btnClose.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white; "
+                            + "-fx-background-radius: 5; -fx-cursor: hand; -fx-padding: 6 20;");
+                    btnClose.setOnAction(e -> dialog.close());
+                    javafx.scene.layout.HBox footer = new javafx.scene.layout.HBox(btnClose);
+                    footer.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+                    root.getChildren().addAll(title, scroll, footer);
+                } catch (Exception ex) {
+                    root.getChildren().add(new Label("❌ Lỗi đọc dữ liệu: " + ex.getMessage()));
+                }
+            });
+        }, "fetch-users-thread").start();
     }
 }

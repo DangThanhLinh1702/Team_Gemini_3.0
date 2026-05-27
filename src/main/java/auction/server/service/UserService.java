@@ -66,6 +66,10 @@ public class UserService {
         if (username == null || password == null){
             return null;
         }
+        // Từ chối đăng nhập nếu tài khoản bị block
+        if (userRepository.isUserBlocked(username)) {
+            return null; // Trả null để AuthHandler trả lỗi 401
+        }
         boolean isValid = userRepository.checkLogin(username, password);
         if(isValid){
             return userRepository.getAllUsers().stream()
@@ -74,7 +78,22 @@ public class UserService {
                     .orElse(null);
         }
         return null;
+    }
 
+    public boolean deleteUser(String username) {
+        return userRepository.deleteUser(username);
+    }
+
+    public boolean blockUser(String username) {
+        return userRepository.setUserBlocked(username, true);
+    }
+
+    public boolean unblockUser(String username) {
+        return userRepository.setUserBlocked(username, false);
+    }
+
+    public boolean isUserBlocked(String username) {
+        return userRepository.isUserBlocked(username);
     }
     public User getUserByUsername(String username) {
         return userRepository.getAllUsers().stream()

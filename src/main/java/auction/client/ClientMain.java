@@ -67,6 +67,7 @@ public class ClientMain extends Application {
             // Lấy controller của AuctionUI để truyền dữ liệu người dùng
             AuctionUI controller = loader.getController();
             if (controller != null && username != null) {
+                controller.setOnLogout(this::showLoginScreen); // truyền callback đăng xuất
                 controller.initializeWithUser(username, role);
                 controller.setJwtToken(token);
             }

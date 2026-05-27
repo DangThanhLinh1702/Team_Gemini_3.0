@@ -27,8 +27,19 @@
                     managed="${btnPostItem.visible}"
                     style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
 
+            <Button fx:id="btnManageUsers"
+                    text="👥 Quản lý User"
+                    onAction="#handleManageUsers"
+                    visible="false"
+                    managed="${btnManageUsers.visible}"
+                    style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
+
             <Label fx:id="lblCurrentUser"
                    style="-fx-text-fill: #1abc9c; -fx-font-size: 13px; -fx-font-weight: bold;"/>
+
+            <Button text="🚪 Đăng xuất"
+                    onAction="#handleLogout"
+                    style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 5;"/>
         </HBox>
     </top>
 

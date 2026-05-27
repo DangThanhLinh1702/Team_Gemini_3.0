@@ -122,6 +122,73 @@ public class AdminItemClient {
         }
     }
 
+    // ─── Quản lý User ─────────────────────────────────────────────────────────
+
+    /** Lấy danh sách tất cả user (ADMIN) */
+    public static Result fetchUsers(String jwtToken) {
+        if (jwtToken == null || jwtToken.isBlank()) return new Result(false, "Token không hợp lệ.");
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/users"))
+                    .header("Authorization", "Bearer " + jwtToken)
+                    .GET()
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return new Result(response.statusCode() == 200, response.body());
+        } catch (Exception e) {
+            return new Result(false, "Lỗi kết nối: " + e.getMessage());
+        }
+    }
+
+    /** Xóa tài khoản user (ADMIN) */
+    public static Result deleteUser(String jwtToken, String username) {
+        if (jwtToken == null || jwtToken.isBlank()) return new Result(false, "Token không hợp lệ.");
+        try {
+            String encodedUsername = java.net.URLEncoder.encode(username, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/users/" + encodedUsername))
+                    .header("Authorization", "Bearer " + jwtToken)
+                    .DELETE()
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+            return parseServerResult(httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
+        } catch (Exception e) {
+            return new Result(false, "Lỗi kết nối: " + e.getMessage());
+        }
+    }
+
+    /** Block tài khoản user (ADMIN) */
+    public static Result blockUser(String jwtToken, String username) {
+        return postUserAction(jwtToken, username, "block");
+    }
+
+    /** Unblock tài khoản user (ADMIN) */
+    public static Result unblockUser(String jwtToken, String username) {
+        return postUserAction(jwtToken, username, "unblock");
+    }
+
+    private static Result postUserAction(String jwtToken, String username, String action) {
+        if (jwtToken == null || jwtToken.isBlank()) return new Result(false, "Token không hợp lệ.");
+        try {
+            // URL-encode username để xử lý khoảng trắng và ký tự đặc biệt
+            String encodedUsername = java.net.URLEncoder.encode(username, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20"); // URLEncoder dùng + cho space, nhưng path cần %20
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/users/" + encodedUsername + "/" + action))
+                    .header("Authorization", "Bearer " + jwtToken)
+                    // Không set Content-Length thủ công — HttpClient tự xử lý
+                    .POST(HttpRequest.BodyPublishers.ofString(""))
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+            return parseServerResult(httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
+        } catch (Exception e) {
+            return new Result(false, "Lỗi kết nối: " + e.getMessage());
+        }
+    }
+
     // ─── Đọc { status, message } từ response server ───────────────────────────
     private static Result parseServerResult(HttpResponse<String> response) {
         try {

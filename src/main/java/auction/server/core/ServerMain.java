@@ -21,7 +21,8 @@ public class ServerMain {
             // Các endpoints
             httpServer.createContext("/login", authHandler);
             httpServer.createContext("/register", authHandler);
-            httpServer.createContext("/users", authHandler);
+            httpServer.createContext("/users", authHandler);   // covers /users, /users/{name}/block, etc.
+            httpServer.createContext("/me", authHandler);
             httpServer.createContext("/items", itemHandler);         // GET + POST
             httpServer.createContext("/auctions", itemListHandler);  // GET
 

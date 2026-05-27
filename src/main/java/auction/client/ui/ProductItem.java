@@ -2,8 +2,13 @@ package auction.client.ui;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 public class ProductItem {
+
+    // Format giá tiền kiểu Việt Nam: 10.000.000 VNĐ
+    private static final NumberFormat VN_FORMAT = NumberFormat.getNumberInstance(new Locale("vi", "VN"));
 
     private final String productId;
     private final StringProperty productName;
@@ -23,11 +28,16 @@ public class ProductItem {
         this.productId    = productId;
         this.productName  = new SimpleStringProperty(productName);
         this.rawPrice     = rawPrice;
-        this.currentPrice = new SimpleStringProperty(String.format("%,d VNĐ", rawPrice));
+        this.currentPrice = new SimpleStringProperty(formatPrice(rawPrice));
         this.leader       = new SimpleStringProperty(leader.isEmpty() ? "---" : leader);
         this.status       = new SimpleStringProperty(status);
         this.seller       = seller;
         this.endTime      = endTime;
+    }
+
+    /** Format giá tiền theo chuẩn Việt Nam: 10.000.000 VNĐ */
+    public static String formatPrice(long price) {
+        return VN_FORMAT.format(price) + " VNĐ";
     }
 
     public String getProductId()    { return productId; }
@@ -48,7 +58,11 @@ public class ProductItem {
     public StringProperty statusProperty() { return status; }
 
     public long getRawPrice()       { return rawPrice; }
-    public void setRawPrice(long rawPrice) { this.rawPrice = rawPrice; }
+    public void setRawPrice(long rawPrice) {
+        this.rawPrice = rawPrice;
+        // Khi setRawPrice, tự động cập nhật luôn currentPrice để card tự refresh
+        this.currentPrice.set(formatPrice(rawPrice));
+    }
 
     public String getSeller()       { return seller; }
 

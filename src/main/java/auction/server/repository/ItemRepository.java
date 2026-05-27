@@ -11,27 +11,37 @@ public class ItemRepository {
     public ArrayList<Item> getAllItemsFromDatabase() {
         ArrayList<Item> items = new ArrayList<>();
         String query = "SELECT * FROM items";
+
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement ps = connection.prepareStatement(query);
              ResultSet resultSet = ps.executeQuery()) {
 
             while (resultSet.next()) {
-                int id = resultSet.getInt("item_id");
-                String name = resultSet.getString("name");
-                String description = resultSet.getString("description");
-                double startingPrice = resultSet.getDouble("starting_price");
-                String sellerUsername = resultSet.getString("seller_username");
+                // 1. Khởi tạo đối tượng rỗng
+                Item itemObject = new Item();
 
-                // Cập nhật tên biến ở đây
-                String image = resultSet.getString("image_data");
-                long endTime = resultSet.getLong("end_time");
+                // 2. Dùng các hàm SET để gán chính xác từng giá trị, không bao giờ lo nhầm!
+                itemObject.setId(resultSet.getInt("item_id"));
+                itemObject.setName(resultSet.getString("name"));
+                itemObject.setDescription(resultSet.getString("description"));
 
-                Item itemObject = new Item(id, name, description, startingPrice, sellerUsername, image, endTime);
+                // Gán giá tiền (Client sẽ tự đọc trường này để hiện lên UI)
+                itemObject.setStartingPrice(resultSet.getDouble("starting_price"));
+
+                itemObject.setSellerUserName(resultSet.getString("seller_username"));
+
+                // Gán ảnh (Đảm bảo tên cột trong get.. là "image_data" đúng như DB của bạn)
+                itemObject.setImage(resultSet.getString("image_data"));
+
+                itemObject.setEndTime(resultSet.getLong("end_time"));
+
+                // 3. Thêm vào danh sách
                 items.add(itemObject);
             }
         } catch (SQLException exception) {
             System.err.println("❌ LỖI KHI LẤY DANH SÁCH ITEMS: " + exception.getMessage());
         }
+
         return items;
     }
 

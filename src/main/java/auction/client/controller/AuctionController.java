@@ -118,4 +118,21 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         System.out.println(">>> KIỂM TRA TOKEN TRONG CONTROLLER: [" + ClientMain.getJwtToken() + "]");
         return AdminItemClient.updateItem(ClientMain.getJwtToken(), itemId, name, description, price);
     }
+
+    // ── ADMIN: Quản lý User ───────────────────────────────────────────────────
+    public AdminItemClient.Result fetchUsers() {
+        return AdminItemClient.fetchUsers(ClientMain.getJwtToken());
+    }
+
+    public AdminItemClient.Result deleteUser(String username) {
+        return AdminItemClient.deleteUser(ClientMain.getJwtToken(), username);
+    }
+
+    public AdminItemClient.Result blockUser(String username) {
+        return AdminItemClient.blockUser(ClientMain.getJwtToken(), username);
+    }
+
+    public AdminItemClient.Result unblockUser(String username) {
+        return AdminItemClient.unblockUser(ClientMain.getJwtToken(), username);
+    }
 }
