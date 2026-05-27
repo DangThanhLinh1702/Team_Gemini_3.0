@@ -1,24 +1,22 @@
 package auction.client.controller;
 
-import auction.client.ClientMain; // <--- ĐÃ THÊM: Import ClientMain để lấy Token toàn cục
+import auction.client.ClientMain;
 import auction.client.network.AuctionWebSocketClient;
 import auction.client.network.AdminItemClient;
 import auction.client.ui.AuctionUI;
-import auction.client.ui.ProductItem;
 import auction.shared.util.JwtUtil;
 import com.google.gson.Gson;
 import javafx.application.Platform;
+
 import java.net.URI;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class AuctionController implements AuctionWebSocketClient.MessageListener {
     private final AuctionUI ui;
-    private String currentUsername;
+    private final String currentUsername;
     private AuctionWebSocketClient webSocketClient;
     private final Gson gson = new Gson();
-    private String jwtToken; // Token cục bộ (Có thể giữ lại hoặc bỏ)
 
     public AuctionController(AuctionUI ui, String username) {
         this.ui = ui;
@@ -26,112 +24,132 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         connectToServer();
     }
 
-    /** Lưu JWT token để dùng cho các lệnh ADMIN */
-    public void setJwtToken(String token) {
-        this.jwtToken = token;
-    }
+    public void setJwtToken(String token) { /* kept for compatibility */ }
 
     private void connectToServer() {
         try {
             String token = JwtUtil.createToken(currentUsername, "USER");
-            webSocketClient = new AuctionWebSocketClient(new URI("ws://localhost:8081/auction"), token);
+            webSocketClient = new AuctionWebSocketClient(
+                    new URI("ws://localhost:8081/auction"), token);
             webSocketClient.setMessageListener(this);
             webSocketClient.connect();
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    public void postNewItem(String name, String desc, double price, int duration, String imageBase64) {
-        if (webSocketClient != null && webSocketClient.isOpen()) {
-            Map<String, Object> msg = new HashMap<>();
-            msg.put("action", "POST_ITEM");
-            msg.put("token", JwtUtil.createToken(currentUsername, "SELLER"));
-            msg.put("name", name);
-            msg.put("description", desc);
-            msg.put("price", price);
-            msg.put("duration", duration);
-            msg.put("image", imageBase64);
-
-            webSocketClient.send(gson.toJson(msg));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
+    // ─── Gửi đăng sản phẩm mới ──────────────────────────────────────────────
+    public void postNewItem(String name, String desc, double price, int duration, String imageBase64) {
+        if (webSocketClient == null || !webSocketClient.isOpen()) return;
+        String msg = gson.toJson(Map.of(
+                "action", "POST_ITEM",
+                "token", JwtUtil.createToken(currentUsername, "SELLER"),
+                "name", name,
+                "description", desc,
+                "price", price,
+                "duration", duration,
+                "image", imageBase64 != null ? imageBase64 : ""
+        ));
+        webSocketClient.send(msg);
+    }
+
+    // ─── MessageListener callbacks ───────────────────────────────────────────
+
     @Override
-    public void onNewItemAdded(String itemId, String name, double price, String seller, long endTime, String imageBase64) {
+    public void onInitialItemsReceived(List<Map<String, Object>> items) {
+        Platform.runLater(() -> ui.onInitialItemsReceived(items));
+    }
+
+    @Override
+    public void onNewItemAdded(String itemId, String name, double price,
+                               String seller, long endTime, String imageBase64) {
+        Platform.runLater(() -> ui.onNewItemAdded(itemId, name, price, seller, endTime, imageBase64));
+    }
+
+    /**
+     * Nhận UPDATE_PRICE từ phòng: cập nhật giá + lịch sử trong detail panel
+     * VÀ cập nhật card ngoài grid (nếu đang ở grid view).
+     */
+    @Override
+    public void onPriceUpdated(String itemId, String user, double newPrice, List<String> bidHistory) {
         Platform.runLater(() -> {
-            ProductItem newItem = new ProductItem(itemId, name, (long)price, "---", "Đang đấu", seller, endTime);
-            newItem.setImageBase64(imageBase64);
-            ui.addProduct(newItem);
-            ui.showNotification("✨ Sản phẩm mới: " + name, "success");
+            ui.updatePrice(itemId, newPrice, user);           // cập nhật card + sidebar
+            ui.updateBidHistory(itemId, bidHistory);          // cập nhật listBidHistory trong detail
         });
     }
 
-    public void onInitialItemsReceived(List<Map<String, Object>> items) {
+    /**
+     * PRICE_UPDATE_GLOBAL: chỉ cập nhật giá trên card ngoài danh sách grid.
+     */
+    @Override
+    public void onGlobalPriceUpdate(String itemId, String user, double newPrice) {
+        Platform.runLater(() -> ui.updatePrice(itemId, newPrice, user));
+    }
+
+    /**
+     * SESSION_STATE: nhận khi vừa JOIN phòng — đổ toàn bộ state hiện tại vào detail panel.
+     */
+    @Override
+    public void onSessionState(String itemId, double currentPrice, String highestBidder,
+                               List<String> bidHistory, boolean isFinished, long endTime) {
         Platform.runLater(() -> {
-            ui.clearTable();
-            for (Map<String, Object> item : items) {
-                try {
-                    // ✅ ĐÃ SỬA: Lấy chuỗi ID thô ra trước (có thể là "1" hoặc "1.0")
-                    String idRaw = String.valueOf(item.get("id"));
-                    // ✅ Xử lý: Nếu chuỗi kết thúc bằng ".0" thì chặt bỏ 2 ký tự cuối đi
-                    String id = idRaw.endsWith(".0") ? idRaw.substring(0, idRaw.length() - 2) : idRaw;
-
-                    String name = (String) item.get("name");
-
-                    // Các phần khác giữ nguyên...
-                    long price = (long) Double.parseDouble(String.valueOf(item.get("startingPrice")));
-                    String seller = (String) item.get("seller");
-                    long endTime = (long) Double.parseDouble(String.valueOf(item.get("endTime")));
-
-                    String imageBase64 = "";
-                    if (item.containsKey("image") && item.get("image") != null) {
-                        imageBase64 = (String) item.get("image");
-                    }
-
-                    ProductItem productItem = new ProductItem(id, name, price, "---", "Đang đấu", seller, endTime);
-                    productItem.setImageBase64(imageBase64);
-
-                    ui.addProduct(productItem);
-                } catch (Exception e) {
-                    System.err.println("Lỗi parse dữ liệu sản phẩm: " + e.getMessage());
-                }
+            ui.updatePrice(itemId, currentPrice, highestBidder);
+            ui.updateBidHistory(itemId, bidHistory);
+            if (isFinished) {
+                ui.markAuctionFinished(itemId);
+            } else {
+                ui.enableBidButton();
             }
         });
     }
 
-    @Override public void onPriceUpdated(String id, String u, double p) { ui.updatePrice(id, (long)p, u); }
-    @Override public void onAuctionEnded(String id, String w, double p) { ui.showAuctionEnded(id, w, (long)p); }
-    @Override public void onError(String msg) { Platform.runLater(() -> ui.showNotification(msg, "error")); }
-    public void joinAuction(String id) { if (webSocketClient != null) webSocketClient.sendJoinRoom(id); ui.enableBidButton(); }
-    public void placeBid(String id, long a) { if (webSocketClient != null) webSocketClient.sendBid(id, a); }
-    public void fetchInitialProducts() {}
+    @Override
+    public void onAuctionEnded(String itemId, String winner, double finalPrice, List<String> bidHistory) {
+        Platform.runLater(() -> {
+            ui.updateBidHistory(itemId, bidHistory);
+            ui.showAuctionEnded(itemId, winner, finalPrice);
+            ui.markAuctionFinished(itemId);
+        });
+    }
 
-    // ── ADMIN: Xóa sản phẩm + phiên đấu giá ─────────────────────────────────
-    // ĐÃ SỬA: Lấy token trực tiếp từ ClientMain.getJwtToken()
+    @Override
+    public void onError(String msg) {
+        Platform.runLater(() -> ui.showNotification("❌ " + msg, "error"));
+    }
+
+    // ─── Public actions ──────────────────────────────────────────────────────
+
+    public void joinAuction(String id) {
+        if (webSocketClient != null && webSocketClient.isOpen()) {
+            webSocketClient.sendJoinRoom(id);
+        }
+    }
+
+    public void placeBid(String id, long amount) {
+        if (webSocketClient != null && webSocketClient.isOpen()) {
+            webSocketClient.sendBid(id, amount);
+        }
+    }
+
+    public void fetchInitialProducts() { /* Server tự gửi khi kết nối */ }
+
+    // ─── ADMIN operations ────────────────────────────────────────────────────
     public AdminItemClient.Result deleteItem(String itemId) {
         return AdminItemClient.deleteItem(ClientMain.getJwtToken(), itemId);
     }
-
-    // ── ADMIN: Sửa sản phẩm + phiên đấu giá ─────────────────────────────────
-    // ĐÃ SỬA: Lấy token trực tiếp từ ClientMain.getJwtToken()
     public AdminItemClient.Result updateItem(String itemId, String name,
                                              String description, double price) {
-        System.out.println(">>> KIỂM TRA TOKEN TRONG CONTROLLER: [" + ClientMain.getJwtToken() + "]");
         return AdminItemClient.updateItem(ClientMain.getJwtToken(), itemId, name, description, price);
     }
-
-    // ── ADMIN: Quản lý User ───────────────────────────────────────────────────
     public AdminItemClient.Result fetchUsers() {
         return AdminItemClient.fetchUsers(ClientMain.getJwtToken());
     }
-
     public AdminItemClient.Result deleteUser(String username) {
         return AdminItemClient.deleteUser(ClientMain.getJwtToken(), username);
     }
-
     public AdminItemClient.Result blockUser(String username) {
         return AdminItemClient.blockUser(ClientMain.getJwtToken(), username);
     }
-
     public AdminItemClient.Result unblockUser(String username) {
         return AdminItemClient.unblockUser(ClientMain.getJwtToken(), username);
     }
