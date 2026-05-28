@@ -31,6 +31,11 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
                 return t;
             });
 
+    // Fix BUG 4: Exponential backoff 3s → 6s → 12s → 30s max
+    private static final long RECONNECT_INITIAL_DELAY = 3;
+    private static final long RECONNECT_MAX_DELAY = 30;
+    private long reconnectDelay = RECONNECT_INITIAL_DELAY;
+
     public AuctionController(AuctionUI ui, String username, String token) {
         this.ui = ui;
         this.currentUsername = username;
@@ -38,12 +43,27 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         connectToServer();
     }
 
+    /** Fix BUG 1: Đóng WebSocket cũ an toàn trước khi tạo mới */
+    private void closeWebSocket() {
+        if (webSocketClient != null) {
+            try {
+                // Xóa callback để tránh onClose gọi lại scheduleReconnect
+                webSocketClient.setOnDisconnect(null);
+                webSocketClient.closeBlocking();
+            } catch (Exception ignored) { }
+            webSocketClient = null;
+        }
+    }
+
     private void connectToServer() {
         try {
+            closeWebSocket(); // Fix BUG 1: đóng cũ trước khi tạo mới
             webSocketClient = new AuctionWebSocketClient(
                     new URI("ws://localhost:8081/auction"), jwtToken);
             webSocketClient.setMessageListener(this);
             webSocketClient.setOnDisconnect(this::scheduleReconnect);
+            // Reset backoff delay khi kết nối thành công
+            webSocketClient.setOnConnect(() -> reconnectDelay = RECONNECT_INITIAL_DELAY);
             webSocketClient.connect();
             System.out.println("🔌 Đang kết nối WebSocket...");
         } catch (Exception e) {
@@ -52,13 +72,18 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         }
     }
 
+    /** Fix BUG 4: Exponential backoff — delay tăng dần 3s → 6s → 12s → 30s max */
     private void scheduleReconnect() {
         if (isReconnecting.compareAndSet(false, true)) {
+            long delay = reconnectDelay;
+            System.out.println("🔄 Reconnect sau " + delay + "s...");
             reconnectScheduler.schedule(() -> {
                 System.out.println("🔄 Đang thử kết nối lại...");
                 connectToServer();
+                // Tăng delay cho lần sau (exponential backoff)
+                reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY);
                 isReconnecting.set(false);
-            }, 3, TimeUnit.SECONDS);
+            }, delay, TimeUnit.SECONDS);
         }
     }
 

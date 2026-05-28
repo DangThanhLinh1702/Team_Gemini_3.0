@@ -152,8 +152,10 @@ public class AuctionUI implements Initializable {
     }
 
     // ── Nhận danh sách ban đầu ───────────────────────────────────────────────
+    /** Fix BUG 3: gom tất cả card vào 1 Platform.runLater() duy nhất */
     public void onInitialItemsReceived(List<Map<String, Object>> items) {
-        clearTable();
+        // Parse tất cả sản phẩm trước (có thể đang ở WS thread)
+        java.util.List<ProductItem> parsedItems = new java.util.ArrayList<>();
         for (Map<String, Object> item : items) {
             try {
                 String idRaw = String.valueOf(item.get("id"));
@@ -173,11 +175,20 @@ public class AuctionUI implements Initializable {
                 ProductItem productItem = new ProductItem(id, name, price, leader, status, seller, endTime);
                 productItem.setImageBase64(imageBase64);
                 productItem.setFinished(isFinished);
-                addProduct(productItem);
+                parsedItems.add(productItem);
             } catch (Exception e) {
                 System.err.println("Lỗi parse sản phẩm: " + e.getMessage());
             }
         }
+        // Một lần duy nhất: clear + add tất cả card
+        Platform.runLater(() -> {
+            productList.clear();
+            productGrid.getChildren().clear();
+            productList.addAll(parsedItems);
+            for (ProductItem pi : parsedItems) {
+                productGrid.getChildren().add(createProductCard(pi));
+            }
+        });
     }
 
     // ── Sản phẩm mới được đăng ──────────────────────────────────────────────
@@ -267,10 +278,12 @@ public class AuctionUI implements Initializable {
         alert.showAndWait();
     }
 
-    // ── Thêm sản phẩm vào grid ───────────────────────────────────────────────
+    // ── Thêm sản phẩm vào grid (chỉ dùng cho single item như NEW_ITEM_ADDED) ─────────
     public void addProduct(ProductItem item) {
-        productList.add(item);
-        Platform.runLater(() -> productGrid.getChildren().add(createProductCard(item)));
+        Platform.runLater(() -> {
+            productList.add(item);
+            productGrid.getChildren().add(createProductCard(item));
+        });
     }
 
     public void clearTable() {
@@ -477,27 +490,46 @@ public class AuctionUI implements Initializable {
     }
 
     // ── Product card ──────────────────────────────────────────────────────────
+    /** Fix BUG 2: decode ảnh trên background thread, chỉ set Image trên FX thread */
     private javafx.scene.Node createProductCard(ProductItem item) {
         VBox card = new VBox(5);
         card.setPrefSize(180, 260);
         card.setStyle("-fx-background-color: white; -fx-border-color: #bdc3c7; " +
                 "-fx-border-radius: 8; -fx-padding: 10; -fx-cursor: hand;");
 
-        // Ảnh
+        // Ảnh — placeholder trước, decode async sau
         StackPane imgBox = new StackPane();
         imgBox.setPrefSize(160, 110);
         imgBox.setStyle("-fx-background-color: #ecf0f1; -fx-background-radius: 5;");
         if (item.getImageBase64() != null && !item.getImageBase64().isEmpty()) {
-            try {
-                byte[] imgBytes = Base64.getDecoder().decode(item.getImageBase64());
-                ImageView imgView = new ImageView(new Image(new ByteArrayInputStream(imgBytes)));
-                imgView.setFitWidth(150);
-                imgView.setFitHeight(100);
-                imgView.setPreserveRatio(true);
-                imgBox.getChildren().add(imgView);
-            } catch (Exception e) {
-                imgBox.getChildren().add(new Label("Lỗi ảnh"));
-            }
+            // Placeholder loading
+            Label loadingLbl = new Label("⏳");
+            loadingLbl.setStyle("-fx-font-size: 24px;");
+            imgBox.getChildren().add(loadingLbl);
+
+            // Decode ảnh trên background thread — không block FX thread
+            String base64Data = item.getImageBase64();
+            Thread imgThread = new Thread(() -> {
+                try {
+                    byte[] imgBytes = Base64.getDecoder().decode(base64Data);
+                    Image img = new Image(new ByteArrayInputStream(imgBytes));
+                    Platform.runLater(() -> {
+                        ImageView imgView = new ImageView(img);
+                        imgView.setFitWidth(150);
+                        imgView.setFitHeight(100);
+                        imgView.setPreserveRatio(true);
+                        imgBox.getChildren().clear();
+                        imgBox.getChildren().add(imgView);
+                    });
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        imgBox.getChildren().clear();
+                        imgBox.getChildren().add(new Label("Lỗi ảnh"));
+                    });
+                }
+            }, "img-decode-" + item.getProductId());
+            imgThread.setDaemon(true);
+            imgThread.start();
         } else {
             Label noImg = new Label("📦");
             noImg.setStyle("-fx-font-size: 32px;");

@@ -15,6 +15,7 @@ public class AuctionWebSocketClient extends WebSocketClient {
     private final String jwtToken;
     private MessageListener messageListener;
     private Runnable onDisconnect;
+    private Runnable onConnect;
 
     public interface MessageListener {
         void onInitialItemsReceived(List<Map<String, Object>> items);
@@ -36,10 +37,12 @@ public class AuctionWebSocketClient extends WebSocketClient {
 
     public void setMessageListener(MessageListener l) { this.messageListener = l; }
     public void setOnDisconnect(Runnable callback)     { this.onDisconnect = callback; }
+    public void setOnConnect(Runnable callback)         { this.onConnect = callback; }
 
     @Override
     public void onOpen(ServerHandshake handshake) {
         System.out.println("✅ Kết nối WebSocket thành công");
+        if (onConnect != null) onConnect.run();
     }
 
     @Override
