@@ -116,7 +116,7 @@
                 <Separator/>
 
                 <VBox spacing="4">
-                    <Label text="💰 Giá hiện tại:"
+                    <Label fx:id="lblCurrentPriceTitle" text="💰 Giá hiện tại:"
                            style="-fx-font-size: 13px; -fx-text-fill: #7f8c8d;"/>
                     <Label fx:id="lblCurrentPrice"
                            text="0 VNĐ"
@@ -126,7 +126,7 @@
                 <VBox spacing="4"
                       style="-fx-background-color: #eafaf1; -fx-border-color: #27ae60;
                              -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;">
-                    <Label text="🏆 Người đang dẫn đầu:"
+                    <Label fx:id="lblLeaderTitle" text="🏆 Người đang dẫn đầu:"
                            style="-fx-font-size: 12px; -fx-text-fill: #27ae60;"/>
                     <Label fx:id="lblLeader"
                            text="---"

@@ -17,12 +17,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * WebSocket Server xử lý toàn bộ giao tiếp realtime giữa server và các client.
+ * WebSocket Server xử lý toàn bộ giao tiếp realtime.
  *
- * Các action được hỗ trợ:
- *  - POST_ITEM : Đăng sản phẩm mới, tạo phiên đấu giá, broadcast toàn client
- *  - JOIN      : Tham gia phòng đấu giá, nhận trạng thái hiện tại
- *  - BID       : Đặt giá, validate, cập nhật DB, broadcast toàn phòng + grid
+ * Fix:
+ * - AUCTION_ENDED broadcast kèm PRICE_UPDATE_GLOBAL để card ngoài grid cũng cập nhật
+ * - SESSION_STATE trả về endTime để client tính countdown đúng
+ * - sendInitialItems lấy đúng giá/leader từ DB (qua AuctionRepository) khi session không có trong RAM
  */
 public class AuctionWebSocketServer extends WebSocketServer {
 
@@ -33,23 +33,32 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     private final ItemService itemService = new ItemService();
     private final UserRepository userRepository = new UserRepository();
+    private final auction.server.repository.AuctionRepository auctionRepository =
+            new auction.server.repository.AuctionRepository();
 
     public AuctionWebSocketServer(int port) {
         super(new InetSocketAddress(port));
 
-        // Đăng ký callback: khi phiên hết giờ → broadcast AUCTION_ENDED đến toàn phòng
+        // Khi phiên hết giờ → broadcast AUCTION_ENDED + PRICE_UPDATE_GLOBAL (cập nhật card)
         AuctionManager.getInstance().setOnAuctionEndCallback(session -> {
-            Map<String, Object> data = new HashMap<>();
-            data.put("type",       "AUCTION_ENDED");
-            data.put("itemId",     session.getItemId());
-            data.put("winner",     session.getHighestBidder());
-            data.put("price",      session.getCurrentPrice());
-            data.put("bidHistory", session.getBidHistory());
+            int itemId = session.getItemId();
 
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("status", "success");
-            resp.put("data", data);
-            broadcastToRoom(session.getItemId(), gson.toJson(resp));
+            // Broadcast AUCTION_ENDED đến client đang trong phòng
+            Map<String, Object> endData = new HashMap<>();
+            endData.put("type",       "AUCTION_ENDED");
+            endData.put("itemId",     itemId);
+            endData.put("winner",     session.getHighestBidder());
+            endData.put("price",      session.getCurrentPrice());
+            endData.put("bidHistory", session.getBidHistory());
+
+            Map<String, Object> endResp = new HashMap<>();
+            endResp.put("status", "success");
+            endResp.put("data", endData);
+            broadcastToRoom(itemId, gson.toJson(endResp));
+
+            // Broadcast PRICE_UPDATE_GLOBAL để card ngoài grid cũng cập nhật người thắng + giá cuối
+            broadcastPriceUpdateGlobal(itemId, session.getHighestBidder(),
+                    (long) session.getCurrentPrice(), true);
         });
     }
 
@@ -58,13 +67,11 @@ public class AuctionWebSocketServer extends WebSocketServer {
     @Override
     public void onOpen(WebSocket ws, ClientHandshake handshake) {
         System.out.println("✅ Client kết nối: " + ws.getRemoteSocketAddress());
-        // Gửi ngay danh sách sản phẩm + trạng thái phiên cho client mới
         sendInitialItems(ws);
     }
 
     @Override
     public void onClose(WebSocket ws, int code, String reason, boolean remote) {
-        // Dọn dẹp client khỏi tất cả các phòng khi ngắt kết nối
         for (Set<WebSocket> room : auctionRooms.values()) {
             room.remove(ws);
         }
@@ -83,10 +90,6 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     // ── Gửi danh sách ban đầu cho client mới ────────────────────────────────
 
-    /**
-     * Gửi toàn bộ danh sách sản phẩm + trạng thái phiên hiện tại cho client vừa kết nối.
-     * Client sẽ dùng dữ liệu này để render grid sản phẩm ngay lập tức.
-     */
     private void sendInitialItems(WebSocket ws) {
         List<Map<String, Object>> itemsToSend = new ArrayList<>();
 
@@ -98,7 +101,7 @@ public class AuctionWebSocketServer extends WebSocketServer {
             itemData.put("seller",      item.getSellerUserName());
             itemData.put("image",       item.getImage() != null ? item.getImage() : "");
 
-            // Lấy trạng thái phiên từ RAM (nếu có) để gửi giá & người dẫn đầu thực tế
+            // Ưu tiên lấy từ RAM (session đang chạy)
             AuctionSession session = AuctionManager.getInstance().getSession(item.getId());
             if (session != null) {
                 itemData.put("startingPrice",  session.getCurrentPrice());
@@ -106,10 +109,20 @@ public class AuctionWebSocketServer extends WebSocketServer {
                 itemData.put("highestBidder",  session.getHighestBidder());
                 itemData.put("isFinished",     session.isFinished());
             } else {
-                itemData.put("startingPrice",  item.getStartingPrice());
-                itemData.put("endTime",        item.getEndTime());
-                itemData.put("highestBidder",  "Chưa có ai");
-                itemData.put("isFinished",     false);
+                // Không có trong RAM → lấy từ DB (phiên đã kết thúc trước đó)
+                AuctionSession dbSession = auctionRepository.findLatestByItemId(item.getId());
+                if (dbSession != null) {
+                    itemData.put("startingPrice",  dbSession.getCurrentPrice());
+                    itemData.put("endTime",        dbSession.getEndTime().getTime());
+                    itemData.put("highestBidder",  dbSession.getHighestBidder() != null
+                            ? dbSession.getHighestBidder() : "Chưa có ai");
+                    itemData.put("isFinished",     dbSession.isFinished());
+                } else {
+                    itemData.put("startingPrice",  item.getStartingPrice());
+                    itemData.put("endTime",        item.getEndTime());
+                    itemData.put("highestBidder",  "Chưa có ai");
+                    itemData.put("isFinished",     false);
+                }
             }
             itemsToSend.add(itemData);
         }
@@ -121,7 +134,6 @@ public class AuctionWebSocketServer extends WebSocketServer {
         Map<String, Object> resp = new HashMap<>();
         resp.put("status", "success");
         resp.put("data",   data);
-
         ws.send(gson.toJson(resp));
     }
 
@@ -132,7 +144,6 @@ public class AuctionWebSocketServer extends WebSocketServer {
         try {
             WebSocketRequestDTO request = gson.fromJson(message, WebSocketRequestDTO.class);
 
-            // Xác thực JWT token — mọi action đều phải có token hợp lệ
             DecodedJWT jwt = JwtUtil.verifyToken(request.getToken());
             if (jwt == null) {
                 sendError(ws, "Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại!");
@@ -151,7 +162,6 @@ public class AuctionWebSocketServer extends WebSocketServer {
                     handleBid(ws, Integer.parseInt(request.getItemId()), username, (long) request.getPrice());
                     break;
                 case "GET_ITEMS":
-                    // Client yêu cầu làm mới danh sách (ví dụ nhấn nút Refresh)
                     sendInitialItems(ws);
                     break;
                 default:
@@ -165,19 +175,10 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     // ── Đăng sản phẩm mới ───────────────────────────────────────────────────
 
-    /**
-     * Xử lý POST_ITEM:
-     * 1. Tính thời gian kết thúc
-     * 2. Lưu item vào DB
-     * 3. Tạo phiên đấu giá (AuctionManager lưu DB)
-     * 4. Broadcast NEW_ITEM_ADDED đến tất cả client
-     */
     private void handlePostItem(WebSocket ws, WebSocketRequestDTO request, String username) {
-        // Mặc định 120 giây nếu client không gửi duration
         int duration = request.getDuration() > 0 ? request.getDuration() : 120;
         long endTime = System.currentTimeMillis() + (duration * 1000L);
 
-        // Lưu item vào DB
         String result = itemService.addItem(
                 request.getName(), request.getDescription(),
                 request.getPrice(), username,
@@ -188,7 +189,6 @@ public class AuctionWebSocketServer extends WebSocketServer {
             return;
         }
 
-        // Lấy item vừa lưu để lấy ID thật từ DB (tránh race condition)
         Item newItem = itemService.getLastInsertedItem();
         if (newItem == null) {
             sendError(ws, "Lỗi hệ thống: Không thể lấy thông tin sản phẩm vừa đăng!");
@@ -196,30 +196,26 @@ public class AuctionWebSocketServer extends WebSocketServer {
         }
         int itemId = newItem.getId();
 
-        // Lấy sellerId từ username
         int sellerId = userRepository.getUserIdByUsername(username);
         if (sellerId == -1) {
             sendError(ws, "Không tìm thấy thông tin người bán trong hệ thống!");
             return;
         }
 
-        // Tạo phiên đấu giá → AuctionManager tự lưu DB và lên lịch kết thúc
         AuctionManager.getInstance().createNewSession(itemId, sellerId, request.getPrice(), duration);
 
-        // Tự động thêm seller vào phòng để nhận cập nhật giá realtime
         auctionRooms.putIfAbsent(itemId, ConcurrentHashMap.newKeySet());
         auctionRooms.get(itemId).add(ws);
 
-        // Broadcast sản phẩm mới đến TẤT CẢ client
         Map<String, Object> data = new HashMap<>();
-        data.put("type",           "NEW_ITEM_ADDED");
-        data.put("itemId",         itemId);
-        data.put("name",           request.getName());
-        data.put("price",          request.getPrice());
-        data.put("seller",         username);
-        data.put("endTime",        endTime);
-        data.put("image",          request.getImage() != null ? request.getImage() : "");
-        data.put("highestBidder",  "Chưa có ai");
+        data.put("type",          "NEW_ITEM_ADDED");
+        data.put("itemId",        itemId);
+        data.put("name",          request.getName());
+        data.put("price",         request.getPrice());
+        data.put("seller",        username);
+        data.put("endTime",       endTime);
+        data.put("image",         request.getImage() != null ? request.getImage() : "");
+        data.put("highestBidder", "Chưa có ai");
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("status", "success");
@@ -231,61 +227,48 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     // ── Tham gia phòng đấu giá ───────────────────────────────────────────────
 
-    /**
-     * Xử lý JOIN:
-     * - Thêm client vào phòng
-     * - Gửi ngay SESSION_STATE với lịch sử đầy đủ từ DB
-     *   (hoạt động cả khi phiên đã kết thúc hoặc server vừa restart)
-     */
     private void handleJoinRoom(WebSocket ws, int itemId, String username) {
         auctionRooms.putIfAbsent(itemId, ConcurrentHashMap.newKeySet());
         auctionRooms.get(itemId).add(ws);
 
-        // Luôn lấy lịch sử từ DB để đảm bảo đầy đủ sau restart / phiên kết thúc
-        java.util.List<String> historyFromDb = AuctionManager.getInstance().getBidHistoryFromDb(itemId);
+        List<String> historyFromDb = AuctionManager.getInstance().getBidHistoryFromDb(itemId);
 
         AuctionSession session = AuctionManager.getInstance().getSession(itemId);
         if (session != null) {
-            // Phiên vẫn còn trong RAM (đang chạy hoặc vừa kết thúc trong session hiện tại)
             Map<String, Object> data = new HashMap<>();
-            data.put("type",           "SESSION_STATE");
-            data.put("itemId",         itemId);
-            data.put("currentPrice",   session.getCurrentPrice());
-            data.put("highestBidder",  session.getHighestBidder());
-            data.put("bidHistory",     historyFromDb.isEmpty() ? session.getBidHistory() : historyFromDb);
-            data.put("isFinished",     session.isFinished());
-            data.put("endTime",        session.getEndTime().getTime());
+            data.put("type",          "SESSION_STATE");
+            data.put("itemId",        itemId);
+            data.put("currentPrice",  session.getCurrentPrice());
+            data.put("highestBidder", session.getHighestBidder());
+            data.put("bidHistory",    historyFromDb.isEmpty() ? session.getBidHistory() : historyFromDb);
+            data.put("isFinished",    session.isFinished());
+            data.put("endTime",       session.getEndTime().getTime());
 
             Map<String, Object> resp = new HashMap<>();
             resp.put("status", "success");
             resp.put("data",   data);
             ws.send(gson.toJson(resp));
-        } else if (!historyFromDb.isEmpty()) {
-            // Phiên không còn trong RAM nhưng DB có lịch sử → phiên đã kết thúc từ trước
-            // Lấy thông tin phiên từ bảng auctions
-            auction.server.repository.AuctionRepository auctionRepo =
-                    new auction.server.repository.AuctionRepository();
-            // Tìm phiên theo item_id bằng cách lấy tất cả và filter
-            java.util.List<AuctionSession> allSessions = auctionRepo.getAllAuctions();
-            AuctionSession pastSession = allSessions.stream()
-                    .filter(s -> s.getItemId() == itemId)
-                    .reduce((first, second) -> second) // lấy session mới nhất
-                    .orElse(null);
-
-            if (pastSession != null) {
+        } else {
+            // Phiên không có trong RAM → lấy từ DB
+            AuctionSession dbSession = auctionRepository.findLatestByItemId(itemId);
+            if (dbSession != null) {
                 Map<String, Object> data = new HashMap<>();
-                data.put("type",           "SESSION_STATE");
-                data.put("itemId",         itemId);
-                data.put("currentPrice",   pastSession.getCurrentPrice());
-                data.put("highestBidder",  pastSession.getHighestBidder());
-                data.put("bidHistory",     historyFromDb);
-                data.put("isFinished",     true);
-                data.put("endTime",        pastSession.getEndTime().getTime());
+                data.put("type",          "SESSION_STATE");
+                data.put("itemId",        itemId);
+                data.put("currentPrice",  dbSession.getCurrentPrice());
+                data.put("highestBidder", dbSession.getHighestBidder() != null
+                        ? dbSession.getHighestBidder() : "Chưa có ai");
+                data.put("bidHistory",    historyFromDb);
+                data.put("isFinished",    dbSession.isFinished());
+                data.put("endTime",       dbSession.getEndTime().getTime());
 
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("status", "success");
                 resp.put("data",   data);
                 ws.send(gson.toJson(resp));
+            } else {
+                // Không có phiên nào → báo lỗi cho client
+                sendError(ws, "Sản phẩm này chưa được tạo phiên đấu giá!");
             }
         }
 
@@ -294,29 +277,19 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     // ── Đặt giá ─────────────────────────────────────────────────────────────
 
-    /**
-     * Xử lý BID:
-     * 1. Kiểm tra seller không tự bid sản phẩm của mình
-     * 2. Gọi AuctionManager.placeBid() → validate + cập nhật RAM + cập nhật DB
-     * 3. Broadcast UPDATE_PRICE (kèm lịch sử) đến toàn phòng
-     * 4. Broadcast PRICE_UPDATE_GLOBAL đến tất cả client ngoài grid
-     */
     private void handleBid(WebSocket ws, int itemId, String username, long price) {
-        // Kiểm tra seller không được tự bid sản phẩm của mình
         Item item = itemService.findItemById(itemId);
         if (item != null && item.getSellerUserName().equals(username)) {
             sendError(ws, "Bạn không thể đấu giá sản phẩm do chính mình đăng bán!");
             return;
         }
 
-        // Kiểm tra phiên tồn tại
         AuctionSession session = AuctionManager.getInstance().getSession(itemId);
         if (session == null) {
             sendError(ws, "Sản phẩm này chưa được tạo phiên đấu giá!");
             return;
         }
 
-        // Kiểm tra phiên còn chạy
         if (session.isFinished()) {
             sendError(ws, "Phiên đấu giá đã kết thúc!");
             return;
@@ -326,28 +299,26 @@ public class AuctionWebSocketServer extends WebSocketServer {
             return;
         }
 
-        // Thực hiện đặt giá: AuctionManager xử lý RAM + DB trong một lần gọi
         boolean success = AuctionManager.getInstance().placeBid(itemId, username, price);
 
         if (success) {
-            // Refresh session sau khi bid thành công
             session = AuctionManager.getInstance().getSession(itemId);
 
-            // Broadcast UPDATE_PRICE + lịch sử đến TẤT CẢ client trong phòng
+            // Broadcast UPDATE_PRICE (kèm lịch sử) cho client đang trong phòng
             Map<String, Object> roomData = new HashMap<>();
             roomData.put("type",       "UPDATE_PRICE");
             roomData.put("itemId",     itemId);
             roomData.put("user",       username);
             roomData.put("price",      (double) price);
-            roomData.put("bidHistory", session.getBidHistory()); // Lịch sử đầy đủ
+            roomData.put("bidHistory", session.getBidHistory());
 
             Map<String, Object> roomResp = new HashMap<>();
             roomResp.put("status", "success");
             roomResp.put("data",   roomData);
             broadcastToRoom(itemId, gson.toJson(roomResp));
 
-            // Broadcast PRICE_UPDATE_GLOBAL đến TẤT CẢ client (cập nhật card ngoài grid)
-            broadcastPriceUpdateGlobal(itemId, username, price);
+            // Broadcast PRICE_UPDATE_GLOBAL cho TẤT CẢ client để cập nhật card ngoài grid
+            broadcastPriceUpdateGlobal(itemId, username, price, false);
 
             System.out.println("💰 Đặt giá | item_id=" + itemId
                     + " | " + username + " → " + String.format("%,.0f", (double) price) + " VNĐ");
@@ -360,24 +331,25 @@ public class AuctionWebSocketServer extends WebSocketServer {
 
     // ── Broadcast helpers ────────────────────────────────────────────────────
 
-    /** Gửi message đến tất cả client đang trong phòng của itemId */
     private void broadcastToRoom(int itemId, String message) {
         Set<WebSocket> room = auctionRooms.get(itemId);
         if (room == null) return;
         for (WebSocket client : room) {
-            if (client.isOpen()) {
-                client.send(message);
-            }
+            if (client.isOpen()) client.send(message);
         }
     }
 
-    /** Broadcast giá mới đến TẤT CẢ client (kể cả ngoài phòng) để cập nhật card trên grid */
-    private void broadcastPriceUpdateGlobal(int itemId, String username, long price) {
+    /**
+     * Broadcast giá/leader mới đến TẤT CẢ client để cập nhật card trên grid.
+     * @param isFinished true nếu phiên đã kết thúc (đổi label sang "Người thắng")
+     */
+    private void broadcastPriceUpdateGlobal(int itemId, String username, long price, boolean isFinished) {
         Map<String, Object> data = new HashMap<>();
-        data.put("type",   "PRICE_UPDATE_GLOBAL");
-        data.put("itemId", itemId);
-        data.put("user",   username);
-        data.put("price",  (double) price);
+        data.put("type",       "PRICE_UPDATE_GLOBAL");
+        data.put("itemId",     itemId);
+        data.put("user",       username);
+        data.put("price",      (double) price);
+        data.put("isFinished", isFinished);
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("status", "success");
@@ -385,7 +357,6 @@ public class AuctionWebSocketServer extends WebSocketServer {
         broadcast(gson.toJson(resp));
     }
 
-    /** Gửi thông báo lỗi về client */
     private void sendError(WebSocket ws, String message) {
         Map<String, Object> resp = new HashMap<>();
         resp.put("status",  "error");

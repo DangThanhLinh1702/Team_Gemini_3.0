@@ -15,12 +15,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Controller trung gian giữa UI và WebSocket client.
- * - Kết nối WebSocket đến server (tự reconnect nếu mất kết nối)
- * - Chuyển tiếp action từ UI xuống network (bid, join, post item)
- * - Nhận callback từ network và cập nhật UI trên JavaFX thread
- */
 public class AuctionController implements AuctionWebSocketClient.MessageListener {
 
     private final AuctionUI ui;
@@ -29,12 +23,11 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
     private AuctionWebSocketClient webSocketClient;
     private final Gson gson = new Gson();
 
-    // Dùng để tránh nhiều luồng reconnect cùng lúc
     private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
     private final ScheduledExecutorService reconnectScheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "ws-reconnect");
-                t.setDaemon(true); // tự dừng khi app đóng
+                t.setDaemon(true);
                 return t;
             });
 
@@ -44,8 +37,6 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         this.jwtToken = token;
         connectToServer();
     }
-
-    // ── Kết nối / Reconnect ──────────────────────────────────────────────────
 
     private void connectToServer() {
         try {
@@ -61,9 +52,6 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         }
     }
 
-    /**
-     * Lên lịch reconnect sau 3 giây. Chỉ chạy 1 lần tại một thời điểm.
-     */
     private void scheduleReconnect() {
         if (isReconnecting.compareAndSet(false, true)) {
             reconnectScheduler.schedule(() -> {
@@ -74,9 +62,8 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         }
     }
 
-    // ── Gửi action từ UI xuống server ───────────────────────────────────────
+    // ── Gửi action ────────────────────────────────────────────────────────────
 
-    /** Đăng sản phẩm mới lên đấu giá */
     public void postNewItem(String name, String desc, double price, int duration, String imageBase64) {
         if (!isConnected()) {
             Platform.runLater(() -> ui.showNotification("❌ Chưa kết nối server, vui lòng thử lại!", "error"));
@@ -94,14 +81,10 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         webSocketClient.send(msg);
     }
 
-    /** Tham gia phòng đấu giá của sản phẩm */
     public void joinAuction(String itemId) {
-        if (isConnected()) {
-            webSocketClient.sendJoinRoom(itemId);
-        }
+        if (isConnected()) webSocketClient.sendJoinRoom(itemId);
     }
 
-    /** Đặt giá cho sản phẩm */
     public void placeBid(String itemId, long amount) {
         if (!isConnected()) {
             Platform.runLater(() -> ui.showNotification("❌ Mất kết nối server!", "error"));
@@ -110,18 +93,12 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         webSocketClient.sendBid(itemId, amount);
     }
 
-    /**
-     * Refresh danh sách sản phẩm.
-     * Gửi action GET_ITEMS nếu đang kết nối, ngược lại reconnect.
-     * KHÔNG đóng kết nối hiện tại để tránh vòng lặp reconnect.
-     */
     public void fetchInitialProducts() {
         if (isConnected()) {
-            // Yêu cầu server gửi lại INITIAL_ITEMS
             webSocketClient.send(String.format(
                     "{\"action\":\"GET_ITEMS\",\"token\":\"%s\"}", jwtToken));
         } else {
-            connectToServer(); // kết nối lại nếu mất
+            connectToServer();
         }
     }
 
@@ -151,8 +128,14 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
     }
 
     @Override
-    public void onGlobalPriceUpdate(String itemId, String user, double newPrice) {
-        Platform.runLater(() -> ui.updatePrice(itemId, newPrice, user));
+    public void onGlobalPriceUpdate(String itemId, String user, double newPrice, boolean isFinished) {
+        Platform.runLater(() -> {
+            ui.updatePrice(itemId, newPrice, user);
+            if (isFinished) {
+                // Khi phiên kết thúc: disable bid, đổi label, cập nhật card
+                ui.markAuctionFinished(itemId);
+            }
+        });
     }
 
     @Override
@@ -161,6 +144,8 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         Platform.runLater(() -> {
             ui.updatePrice(itemId, currentPrice, highestBidder);
             ui.updateBidHistory(itemId, bidHistory);
+            // Cập nhật endTime cho sản phẩm (quan trọng khi client join lại sau restart)
+            ui.updateProductEndTime(itemId, endTime);
             if (isFinished) {
                 ui.markAuctionFinished(itemId);
             } else {
@@ -210,6 +195,5 @@ public class AuctionController implements AuctionWebSocketClient.MessageListener
         return AdminItemClient.unblockUser(ClientMain.getJwtToken(), username);
     }
 
-    /** @deprecated Dùng constructor 3-param thay thế */
     public void setJwtToken(String token) { /* kept for compatibility */ }
 }
