@@ -14,14 +14,15 @@ public class AuctionWebSocketClient extends WebSocketClient {
     private final Gson gson = new Gson();
     private final String jwtToken;
     private MessageListener messageListener;
-    private Runnable onDisconnect; // callback khi mất kết nối → AuctionController tự reconnect
+    private Runnable onDisconnect;
 
     public interface MessageListener {
         void onInitialItemsReceived(List<Map<String, Object>> items);
         void onNewItemAdded(String itemId, String name, double price,
                             String seller, long endTime, String imageBase64);
         void onPriceUpdated(String itemId, String user, double newPrice, List<String> bidHistory);
-        void onGlobalPriceUpdate(String itemId, String user, double newPrice);
+        /** Cập nhật card ngoài grid. isFinished=true khi phiên đã kết thúc */
+        void onGlobalPriceUpdate(String itemId, String user, double newPrice, boolean isFinished);
         void onSessionState(String itemId, double currentPrice, String highestBidder,
                             List<String> bidHistory, boolean isFinished, long endTime);
         void onAuctionEnded(String itemId, String winner, double finalPrice, List<String> bidHistory);
@@ -36,8 +37,6 @@ public class AuctionWebSocketClient extends WebSocketClient {
     public void setMessageListener(MessageListener l) { this.messageListener = l; }
     public void setOnDisconnect(Runnable callback)     { this.onDisconnect = callback; }
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────
-
     @Override
     public void onOpen(ServerHandshake handshake) {
         System.out.println("✅ Kết nối WebSocket thành công");
@@ -46,19 +45,13 @@ public class AuctionWebSocketClient extends WebSocketClient {
     @Override
     public void onClose(int code, String reason, boolean remote) {
         System.out.println("⚠ Mất kết nối WebSocket (code=" + code + ")");
-        // Báo cho AuctionController lên lịch reconnect
-        if (onDisconnect != null) {
-            onDisconnect.run();
-        }
+        if (onDisconnect != null) onDisconnect.run();
     }
 
     @Override
     public void onError(Exception e) {
         System.err.println("❌ WebSocket error: " + e.getMessage());
-        // onClose sẽ được gọi sau onError bởi thư viện — không cần gọi onDisconnect ở đây
     }
-
-    // ── Nhận message từ server ───────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
     @Override
@@ -66,7 +59,6 @@ public class AuctionWebSocketClient extends WebSocketClient {
         try {
             ResponseDTO response = gson.fromJson(message, ResponseDTO.class);
 
-            // Lỗi từ server (bid thấp, phiên kết thúc, v.v.)
             if ("error".equals(response.getStatus())) {
                 if (messageListener != null) {
                     messageListener.onError(response.getMessage() != null
@@ -107,10 +99,11 @@ public class AuctionWebSocketClient extends WebSocketClient {
                     break;
                 }
                 case "PRICE_UPDATE_GLOBAL": {
-                    String itemId = parseId(data.get("itemId"));
-                    String user   = (String) data.get("user");
-                    double price  = ((Number) data.get("price")).doubleValue();
-                    messageListener.onGlobalPriceUpdate(itemId, user, price);
+                    String itemId    = parseId(data.get("itemId"));
+                    String user      = (String) data.get("user");
+                    double price     = ((Number) data.get("price")).doubleValue();
+                    boolean finished = Boolean.TRUE.equals(data.get("isFinished"));
+                    messageListener.onGlobalPriceUpdate(itemId, user, price, finished);
                     break;
                 }
                 case "SESSION_STATE": {
@@ -140,8 +133,6 @@ public class AuctionWebSocketClient extends WebSocketClient {
         }
     }
 
-    // ── Gửi action lên server ────────────────────────────────────────────────
-
     public void sendBid(String id, long price) {
         send(String.format(
                 "{\"action\":\"BID\",\"token\":\"%s\",\"itemId\":\"%s\",\"price\":%d}",
@@ -154,9 +145,6 @@ public class AuctionWebSocketClient extends WebSocketClient {
                 jwtToken, id));
     }
 
-    // ── Helper ───────────────────────────────────────────────────────────────
-
-    /** Parse id dạng "1" hoặc "1.0" → "1" */
     private String parseId(Object raw) {
         if (raw == null) return "0";
         String s = String.valueOf(raw);
