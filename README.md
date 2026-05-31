@@ -1,106 +1,72 @@
-# Auction App
-# Bài tập lớn môn Lập Trình Nâng Cao của nhóm 3
 
-Tổ chức các thư mục và chức năng của từng package, class chính (thêm các class để tối ưu code thì quá tốt) (ae đọc đi nghen xong tạm thời code theo form này mai sau mở rộng nó dễ)
-# 1. Thư mục client (Giao Diện Người Dùng)
 
-* Vai trò: Ứng dụng hiển thị trên máy của người dùng. Nhiệm vụ chính là lấy thao tác của người dùng, gửi lên Server và hiển thị kết quả trả về. 
+## 1. Mô tả ngắn gọn bài toán và phạm vi hệ thống
+- **Bài toán:** Xây dựng một ứng dụng đấu giá trực tuyến hoạt động theo mô hình Client-Server. Ứng dụng cho phép nhiều người dùng kết nối đồng thời để đăng bán tài sản và tham gia trả giá (bidding) cạnh tranh theo thời gian thực.
+- **Phạm vi hệ thống:** - Hệ thống cung cấp hai vai trò chính: Người bán (Seller) và Người mua (Bidder).
+    - Hỗ trợ xử lý đa luồng (Multi-threading) và giao tiếp mạng theo thời gian thực.
+    - Quản lý các phiên đấu giá chặt chẽ với đồng hồ đếm ngược tự động và lưu trữ toàn bộ lịch sử trả giá.
 
-Package ui (Giao diện hiển thị - View): // ae áp dụng JavaFX làm test luôn phần này trước //
+## 2. Công nghệ sử dụng, môi trường chạy và yêu cầu cài đặt
+- **Ngôn ngữ lập trình:** Java
+- **Giao diện người dùng (GUI):** JavaFX 21
+- **Giao tiếp mạng & Real-time:** WebSocket (`org.java-websocket:1.5.3`)
+- **Bảo mật & Xác thực:** JSON Web Token - JWT (`com.auth0:java-jwt:4.5.1`)
+- **Xử lý dữ liệu:** Gson (`com.google.code.gson:2.10.1`)
+- **Cơ sở dữ liệu:** MySQL (Được triển khai trực tuyến trên Aiven Cloud)
+- **Công cụ Build:** Gradle (Kotlin DSL)
+- **Yêu cầu cài đặt:**
+    - Máy tính cần cài đặt sẵn **JDK 17** (hoặc JDK 21).
+    - **Không cần cài đặt Database local**: Ứng dụng đã được cấu hình tự động kết nối với MySQL Cloud. Chỉ cần đảm bảo máy tính có kết nối Internet ổn định khi khởi chạy ứng dụng.
 
-- LoginUI: Màn hình vẽ các ô nhập tài khoản, mật khẩu và nút Đăng nhập.
+## 3. Cấu trúc thư mục và các module chính
+Dự án được chia thành 3 module logic chính: `client`, `server`, và `shared`.
 
-- AuctionUI: Màn hình phòng đấu giá chi tiết, hiện ảnh sản phẩm, ô nhập giá tiền và hiển thị lịch sử người khác trả giá.
+```
+Team_Gemini_3.0/
+├── src/main/java/auction/
+│   ├── client/               # Module Client (Giao diện và Logic người dùng)
+│   │   ├── controller/       # Xử lý sự kiện giao diện (AuctionController, PostItemController...)
+│   │   ├── network/          # Giao tiếp mạng (WebSocketClient, AuthClient)
+│   │   ├── ui/               # Giao diện hiển thị (View)
+│   │   └── ClientMain.java   # Lớp khởi chạy ứng dụng Client (Entry point)
+│   ├── server/               # Module Server (Core logic và truy xuất DB)
+│   │   ├── core/             # Quản lý Server và các phiên đấu giá
+│   │   ├── handler/          # Xử lý các yêu cầu (Request) từ Client
+│   │   ├── model/            # Cấu trúc dữ liệu và thực thể
+│   │   ├── repository/       # Giao tiếp trực tiếp với Cơ sở dữ liệu
+│   │   └── ServerMain.java   # Lớp khởi chạy Server (Entry point)
+│   └── shared/               # Module dùng chung
+│       ├── dto/              # Các đối tượng truyền tải dữ liệu giữa Client-Server
+│       └── util/             # Các lớp tiện ích hỗ trợ (Json, Jwt)
+├── src/main/resources/
+│   ├── auction/client/ui/    # Chứa thiết kế giao diện tĩnh (.fxml)
+│   └── database.properties   # Cấu hình Database Cloud
+└── build.gradle.kts          # Cấu hình dependencies và quản lý project
+```
 
-- MainUI: Sảnh chờ chung, hiển thị danh sách các phòng đấu giá đang diễn ra để người dùng chọn.
+## 4. Vị trí các file jar
 
-Package controller (Người điều phối):
 
-- LoginController: Lấy chữ người dùng vừa gõ ở LoginUI, đóng gói lại, nhờ SocketClient gửi lên Server, đợi Server báo về (Thành công/Thất bại) và cập nhật lại lên LoginUI.
+## 5. Hướng dẫn chạy server
 
-- AuctionController: Quản lý nút "Đặt giá", đồng thời liên tục lắng nghe sự kiện từ Server (như có người khác vừa trả giá cao hơn) để cập nhật giao diện AuctionUI ngay lập tức.
 
-Package network (Giao tiếp mạng):
 
-- SocketClient: Chuyên gia liên lạc. Nó chứa cấu hình IP, Port của Server và cung cấp các hàm sendData() và receiveData() để các Controller gọi đến.
 
-**Class ClientMain: Nơi chứa hàm main() của máy khách, khởi tạo các Controller và hiển thị màn hình LoginUI đầu tiên.
+## 6. Danh sách chức năng đã hoàn thành
+* Quản lý tài khoản: Đăng ký, Đăng nhập, Phân quyền người dùng (Cho phép chuyển đổi linh hoạt vai trò Seller/Bidder).
 
-# 2.Thư mục server (Bộ Não Của Hệ Thống)
+* Tính năng của Seller: Đăng tải sản phẩm mới kèm giá khởi điểm, thời lượng đấu giá và upload hình ảnh (Hình ảnh được mã hóa an toàn dưới dạng Base64).
 
-- Nhiệm vụ: Chạy 24/7, lắng nghe kết nối, quản lý luồng dữ liệu, kiểm tra luật chơi (logic) và lưu trữ dữ liệu.
+* Tính năng của Bidder: Xem danh sách sản phẩm đang đấu giá, nhập số tiền và tham gia trả giá (Bid).
 
-Package core (Lõi mạng):
+* Xử lý thời gian thực (Real-time):
 
-- ServerMain: Hàm main() mở cổng (port) và khởi động Server.
+-Cập nhật tự động trạng thái giá cao nhất hiện tại cho toàn bộ các Client.
 
-- ClientHandler: Mỗi khi 1 Client kết nối, Server tạo ra 1 ClientHandler chạy độc lập (Thread) để chuyên phục vụ Client đó (nhận/gửi Packet).
+-Hiển thị danh sách người đang dẫn đầu phiên đấu giá.
 
-- ClientManager: Quản lý danh sách các ClientHandler đang hoạt động. Rất quan trọng để tính năng Broadcast hoạt động (VD: thông báo giá mới cho toàn bộ người trong phòng).
+-Đồng hồ đếm ngược thời gian kết thúc phiên đấu giá chuẩn xác.
 
-Package handler (Bộ phận tiếp tân phân loại):
+-Lưu trữ dữ liệu: Lưu trữ an toàn thông tin người dùng, chi tiết sản phẩm và toàn bộ lịch sử các lần trả giá vào Database.
 
-- AuthHandler: Nhận Packet có lệnh đăng nhập/đăng ký từ ClientHandler và chuyển cho UserService xử lý.
-
-- BidHandler: Nhận Packet đặt giá và chuyển cho AuctionService xử lý.
-
-Package model (Thực thể dữ liệu):
-
-- Entity: Lớp gốc chứa thông tin chung như ID, ngày tạo.
-
-- User: Lớp trừu tượng (Abstract) đại diện cho người dùng chung.
-
-- Bidder, Seller, Admin: Kế thừa từ User, mỗi class có đặc điểm riêng.
-
-- Item, Auction, BidTransaction: Lưu thông tin về Sản phẩm, Phiên đấu giá và Lịch sử trả giá.
-
-Package repository (DAO - Tương tác cơ sở dữ liệu): *(tạm thời dùng mảng nào học database r làm tiếp)
-
-- IRepository<T>: Giao diện chuẩn mực (Generics) quy định các hàm Thêm/Sửa/Xóa/Tìm kiếm chung.
-
-- UserRepository, AuctionRepository: Thực thi IRepository, làm nhiệm vụ đọc/ghi dữ liệu thực tế (vào Database hoặc File/List).
-
-Package service (Luật chơi / Logic nghiệp vụ):
-
-- IUserService, IAuctionService: Giao diện quy định các chức năng (Interface).
-
-- UserServiceImpl, AuctionServiceImpl: Nơi chứa "chất xám". Ví dụ: Kiểm tra xem người dùng có bị khóa không, giá đặt (bid) có hợp lệ không (phải cao hơn giá hiện tại và thời gian chưa kết thúc).
-
-# 3.Thư mục shared (Phần Dùng Chung)
-
-- Nhiệm vụ: Chứa các lớp dữ liệu và quy tắc mà cả Client và Server đều phải biết để có thể "hiểu" được nhau khi truyền dữ liệu qua mạng bằng Socket.
-
-Package protocol (Quy tắc giao tiếp):
-
-- Packet: Lớp "vỏ bọc" cho mọi gói tin gửi qua mạng. Gồm 3 phần: Mã lệnh (để làm gì), Dữ liệu (mang theo cái gì), và Trạng thái (thành công hay thất bại).
-
-- RequestType: Chứa các mã lệnh (VD: LOGIN, BID, GET_AUCTIONS).
-
-Package dto (Data Transfer Object - Thùng hàng dữ liệu):
-
-- Chứa các đối tượng chỉ dùng để truyền đi qua mạng. (VD: UserDTO mang thông tin tài khoản, BidDTO mang thông tin số tiền đặt giá). Các lớp này phải implements Serializable.
-
-Package constant (Hằng số):
-
-- Lưu các giá trị cố định dùng chung như Role (SELLER, BIDDER, ADMIN) để tránh viết sai chính tả trong code.
-
-Package util (Công cụ tiện ích):
-
-- Các hàm dùng chung như kiểm tra định dạng email, mã hóa mật khẩu, định dạng tiền tệ (VNĐ).
-
-# 4.Luồng hoạt động 
-- (Client) Người dùng gõ giá 100k vào AuctionUI và bấm nút "Đặt giá".
-
-- (Client) AuctionController lấy số 100k đó, tạo ra một BidDTO, bọc vào một Packet mang cờ lệnh PLACE_BID.
-
-- (Client) SocketClient gửi Packet này qua mạng lên Server.
-
-- (Server) ClientHandler của người dùng đó nhận được Packet, đọc thấy cờ PLACE_BID nên chuyển gói hàng cho BidHandler.
-
-- (Server) BidHandler tháo gói hàng, nhờ AuctionServiceImpl kiểm tra xem 100k có hợp lệ không.
-
-- (Server) AuctionServiceImpl gọi AuctionRepository để lấy thông tin phiên đấu giá hiện tại để đối chiếu. Nếu hợp lệ, lưu lịch sử mới vào Repository.
-
-- (Server) AuctionServiceImpl báo lại kết quả thành công. Lúc này, Server dùng ClientManager để gửi một thông báo (Broadcast) đến tất cả các Client đang trong phòng đấu giá đó.
-
-- (Client) Phía người dùng, AuctionUpdateListener nhận được thông báo mới, lập tức chỉ đạo AuctionUI đổi con số trên màn hình thành 100k.
+## 7. Link PDF và video demo
