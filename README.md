@@ -86,3 +86,4 @@ File Client: AuctionApp-1.0-client.jar
 - Lưu trữ dữ liệu: Lưu trữ an toàn thông tin người dùng, chi tiết sản phẩm và toàn bộ lịch sử các lần trả giá vào Database.
 
 ## 7. Link PDF và video demo
+[Link báo cáo PDF và video demo](https://drive.google.com/file/d/1-Yybc58FiBUcA0cQaVfazH_dU5dfS2bD/view?usp=drive_link)
