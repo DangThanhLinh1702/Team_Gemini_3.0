@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="JSON Utility Tests" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-05-31T09:09:11.502Z" hostname="LAPTOP-E3IJCN9N" time="0.007">
+  <properties/>
+  <testcase name="Should convert complex object to JSON" classname="auction.shared.util.JsonUtilTest" time="0.001"/>
+  <testcase name="Should handle special characters in JSON" classname="auction.shared.util.JsonUtilTest" time="0.0"/>
+  <testcase name="Should handle null data in response" classname="auction.shared.util.JsonUtilTest" time="0.001"/>
+  <testcase name="Should parse response JSON back to object" classname="auction.shared.util.JsonUtilTest" time="0.001"/>
+  <testcase name="Should build standard response JSON" classname="auction.shared.util.JsonUtilTest" time="0.0"/>
+  <testcase name="Should build error response" classname="auction.shared.util.JsonUtilTest" time="0.0"/>
+  <testcase name="Should build response with data" classname="auction.shared.util.JsonUtilTest" time="0.001"/>
+  <testcase name="Should convert object to JSON string" classname="auction.shared.util.JsonUtilTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

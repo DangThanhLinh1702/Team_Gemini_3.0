@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="AuctionSession Tests" tests="19" skipped="0" failures="0" errors="0" timestamp="2026-05-31T09:09:11.411Z" hostname="LAPTOP-E3IJCN9N" time="0.02">
+  <properties/>
+  <testcase name="Should set and get start time" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should accept valid bid" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should finish auction correctly" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should set and get highest bidder" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should determine auction is not running after finish" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should set and get auction ID" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should create auction session with correct properties" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should reject bid equal to or lower than current price" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should reject bid when auction is finished" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should clear existing bid history when loading new one" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should set and get end time" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should allow multiple bids from different bidders" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should determine auction is running when within time window" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should record finish message in history" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should maintain bid history" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should set and get seller ID" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should set and get current price" classname="auction.server.model.AuctionSessionTest" time="0.0"/>
+  <testcase name="Should set and get item ID" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <testcase name="Should load bid history correctly" classname="auction.server.model.AuctionSessionTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

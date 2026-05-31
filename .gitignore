@@ -1,6 +1,5 @@
 # Gradle rác
 .gradle/
-build/
 !gradle/wrapper/gradle-wrapper.jar
 
 # IntelliJ rác (Chỉ giữ lại cấu hình cần thiết, bỏ qua các file cá nhân)
