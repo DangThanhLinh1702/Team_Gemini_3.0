@@ -2,7 +2,6 @@ plugins {
     id("java")
     id("application")
     id("org.openjfx.javafxplugin") version "0.1.0"
-
 }
 
 group = "auction"
@@ -59,15 +58,17 @@ sourceSets {
         }
     }
 }
+
 tasks.withType<ProcessResources> {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
+
 java {
     modularity.inferModulePath.set(true) // Ép Gradle tự động đưa thư viện vào Module Path
 }
 
 // ==========================================
-// CÁC TASK CHẠY TRỰC TIẾP TRONG LÚC CODE
+// CÁC TASK CHẠY TRỰC TRONG LÚC CODE
 // ==========================================
 
 // Tạo thêm lệnh chạy Server
@@ -82,22 +83,37 @@ tasks.register<JavaExec>("runServer") {
 // CÁC TASK ĐÓNG GÓI RA FILE JAR NỘP BÀI
 // ==========================================
 
-// Đóng gói Client: File sinh ra sẽ là auction-1.0-client.jar
+// 1. Đóng gói Client: File sinh ra sẽ là auction-1.0-client.jar
 tasks.jar {
     manifest {
         attributes["Main-Class"] = "auction.client.AppLauncher"
     }
     archiveClassifier.set("client")
+
+    // ĐÃ THÊM: Gom toàn bộ code bạn viết vào (Fix triệt để lỗi ClassNotFound)
+    from(sourceSets.main.get().output)
+
+    // Gom thư viện bên ngoài
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-// Đóng gói Server: File sinh ra sẽ là auction-1.0-server.jar
+// 2. Đóng gói Server: File sinh ra sẽ là auction-1.0-server.jar
 tasks.register<Jar>("serverJar") {
     manifest {
         attributes["Main-Class"] = "auction.server.core.ServerMain"
     }
     archiveClassifier.set("server")
+
+    // ĐÃ THÊM: Gom toàn bộ code bạn viết vào (Fix triệt để lỗi ClassNotFound)
+    from(sourceSets.main.get().output)
+
+    // Gom thư viện bên ngoài
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// 3. ĐÃ THÊM: Ép task 'build' mặc định tự động chạy kèm cả 'serverJar'
+tasks.named("build") {
+    dependsOn("serverJar")
 }
