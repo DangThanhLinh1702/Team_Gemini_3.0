@@ -17,6 +17,7 @@ javafx {
     modules = listOf("javafx.controls", "javafx.fxml")
 }
 
+// Cấu hình mặc định cho lệnh ./gradlew run (Mở Client)
 application {
     mainClass.set("auction.client.AppLauncher")
 }
@@ -51,7 +52,6 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.24.1")
 }
 
-
 sourceSets {
     main {
         resources {
@@ -64,4 +64,40 @@ tasks.withType<ProcessResources> {
 }
 java {
     modularity.inferModulePath.set(true) // Ép Gradle tự động đưa thư viện vào Module Path
+}
+
+// ==========================================
+// CÁC TASK CHẠY TRỰC TIẾP TRONG LÚC CODE
+// ==========================================
+
+// Tạo thêm lệnh chạy Server
+tasks.register<JavaExec>("runServer") {
+    mainClass.set("auction.server.core.ServerMain")
+    classpath = sourceSets.main.get().runtimeClasspath
+    description = "Khởi chạy Server Đấu giá"
+    group = "application"
+}
+
+// ==========================================
+// CÁC TASK ĐÓNG GÓI RA FILE JAR NỘP BÀI
+// ==========================================
+
+// Đóng gói Client: File sinh ra sẽ là auction-1.0-client.jar
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "auction.client.AppLauncher"
+    }
+    archiveClassifier.set("client")
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Đóng gói Server: File sinh ra sẽ là auction-1.0-server.jar
+tasks.register<Jar>("serverJar") {
+    manifest {
+        attributes["Main-Class"] = "auction.server.core.ServerMain"
+    }
+    archiveClassifier.set("server")
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
