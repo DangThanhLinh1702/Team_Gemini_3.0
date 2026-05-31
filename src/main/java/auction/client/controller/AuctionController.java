@@ -1,98 +1,224 @@
 package auction.client.controller;
 
+import auction.client.ClientMain;
 import auction.client.network.AuctionWebSocketClient;
+import auction.client.network.AdminItemClient;
 import auction.client.ui.AuctionUI;
-import auction.client.ui.ProductItem;
-import auction.shared.util.JwtUtil;
 import com.google.gson.Gson;
 import javafx.application.Platform;
+
 import java.net.URI;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AuctionController implements AuctionWebSocketClient.MessageListener {
+
     private final AuctionUI ui;
-    private String currentUsername;
+    private final String currentUsername;
+    private final String jwtToken;
     private AuctionWebSocketClient webSocketClient;
     private final Gson gson = new Gson();
 
-    public AuctionController(AuctionUI ui, String username) {
+    private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
+    private final ScheduledExecutorService reconnectScheduler =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "ws-reconnect");
+                t.setDaemon(true);
+                return t;
+            });
+
+    // Fix BUG 4: Exponential backoff 3s → 6s → 12s → 30s max
+    private static final long RECONNECT_INITIAL_DELAY = 3;
+    private static final long RECONNECT_MAX_DELAY = 30;
+    private long reconnectDelay = RECONNECT_INITIAL_DELAY;
+
+    public AuctionController(AuctionUI ui, String username, String token) {
         this.ui = ui;
         this.currentUsername = username;
+        this.jwtToken = token;
         connectToServer();
+    }
+
+    /** Fix BUG 1: Đóng WebSocket cũ an toàn trước khi tạo mới */
+    private void closeWebSocket() {
+        if (webSocketClient != null) {
+            try {
+                // Xóa callback để tránh onClose gọi lại scheduleReconnect
+                webSocketClient.setOnDisconnect(null);
+                webSocketClient.closeBlocking();
+            } catch (Exception ignored) { }
+            webSocketClient = null;
+        }
     }
 
     private void connectToServer() {
         try {
-            String token = JwtUtil.createToken(currentUsername, "USER");
-            webSocketClient = new AuctionWebSocketClient(new URI("ws://localhost:8081/auction"), token);
+            closeWebSocket(); // Fix BUG 1: đóng cũ trước khi tạo mới
+            webSocketClient = new AuctionWebSocketClient(
+                    new URI("ws://localhost:8081/auction"), jwtToken);
             webSocketClient.setMessageListener(this);
+            webSocketClient.setOnDisconnect(this::scheduleReconnect);
+            // Reset backoff delay khi kết nối thành công
+            webSocketClient.setOnConnect(() -> reconnectDelay = RECONNECT_INITIAL_DELAY);
             webSocketClient.connect();
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    public void postNewItem(String name, String desc, double price, int duration, String imageBase64) {
-        if (webSocketClient != null && webSocketClient.isOpen()) {
-            Map<String, Object> msg = new HashMap<>();
-            msg.put("action", "POST_ITEM");
-            msg.put("token", JwtUtil.createToken(currentUsername, "SELLER"));
-            msg.put("name", name);
-            msg.put("description", desc);
-            msg.put("price", price);
-            msg.put("duration", duration);
-            msg.put("image", imageBase64);
-
-            webSocketClient.send(gson.toJson(msg));
+            System.out.println("🔌 Đang kết nối WebSocket...");
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi kết nối WebSocket: " + e.getMessage());
+            scheduleReconnect();
         }
     }
 
+    /** Fix BUG 4: Exponential backoff — delay tăng dần 3s → 6s → 12s → 30s max */
+    private void scheduleReconnect() {
+        if (isReconnecting.compareAndSet(false, true)) {
+            long delay = reconnectDelay;
+            System.out.println("🔄 Reconnect sau " + delay + "s...");
+            reconnectScheduler.schedule(() -> {
+                System.out.println("🔄 Đang thử kết nối lại...");
+                connectToServer();
+                // Tăng delay cho lần sau (exponential backoff)
+                reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY);
+                isReconnecting.set(false);
+            }, delay, TimeUnit.SECONDS);
+        }
+    }
+
+    // ── Gửi action ────────────────────────────────────────────────────────────
+
+    public void postNewItem(String name, String desc, double price, int duration, String imageBase64) {
+        if (!isConnected()) {
+            Platform.runLater(() -> ui.showNotification("❌ Chưa kết nối server, vui lòng thử lại!", "error"));
+            return;
+        }
+        String msg = gson.toJson(Map.of(
+                "action",      "POST_ITEM",
+                "token",       jwtToken,
+                "name",        name,
+                "description", desc,
+                "price",       price,
+                "duration",    duration,
+                "image",       imageBase64 != null ? imageBase64 : ""
+        ));
+        webSocketClient.send(msg);
+    }
+
+    public void joinAuction(String itemId) {
+        if (isConnected()) webSocketClient.sendJoinRoom(itemId);
+    }
+
+    public void placeBid(String itemId, long amount) {
+        if (!isConnected()) {
+            Platform.runLater(() -> ui.showNotification("❌ Mất kết nối server!", "error"));
+            return;
+        }
+        webSocketClient.sendBid(itemId, amount);
+    }
+
+    public void fetchInitialProducts() {
+        if (isConnected()) {
+            webSocketClient.send(String.format(
+                    "{\"action\":\"GET_ITEMS\",\"token\":\"%s\"}", jwtToken));
+        } else {
+            connectToServer();
+        }
+    }
+
+    private boolean isConnected() {
+        return webSocketClient != null && webSocketClient.isOpen();
+    }
+
+    // ── MessageListener callbacks ────────────────────────────────────────────
+
     @Override
-    public void onNewItemAdded(String itemId, String name, double price, String seller, long endTime, String imageBase64) {
+    public void onInitialItemsReceived(List<Map<String, Object>> items) {
+        Platform.runLater(() -> ui.onInitialItemsReceived(items));
+    }
+
+    @Override
+    public void onNewItemAdded(String itemId, String name, double price,
+                               String seller, long endTime, String imageBase64) {
+        Platform.runLater(() -> ui.onNewItemAdded(itemId, name, price, seller, endTime, imageBase64));
+    }
+
+    @Override
+    public void onPriceUpdated(String itemId, String user, double newPrice, List<String> bidHistory) {
         Platform.runLater(() -> {
-            ProductItem newItem = new ProductItem(itemId, name, (long)price, "---", "Đang đấu", seller, endTime);
-            newItem.setImageBase64(imageBase64); // Nhét ảnh vào Item
-            ui.addProduct(newItem);
-            ui.showNotification("✨ Sản phẩm mới: " + name, "success");
+            ui.updatePrice(itemId, newPrice, user);
+            ui.updateBidHistory(itemId, bidHistory);
         });
     }
 
     @Override
-    public void onInitialItemsReceived(List<Map<String, Object>> items) {
+    public void onGlobalPriceUpdate(String itemId, String user, double newPrice, boolean isFinished) {
         Platform.runLater(() -> {
-            ui.clearTable();
-            for (Map<String, Object> item : items) {
-                try {
-                    String id = String.valueOf(item.get("id"));
-                    String name = (String) item.get("name");
-
-                    // Ép kiểu an toàn bằng cách chuyển sang String rồi parse ra số
-                    long price = (long) Double.parseDouble(String.valueOf(item.get("startingPrice")));
-                    String seller = (String) item.get("seller");
-                    long endTime = (long) Double.parseDouble(String.valueOf(item.get("endTime")));
-
-                    // --- ĐÃ SỬA Ở ĐÂY: Lấy chuỗi ảnh từ dữ liệu Server gửi về ---
-                    String imageBase64 = "";
-                    if (item.containsKey("image") && item.get("image") != null) {
-                        imageBase64 = (String) item.get("image");
-                    }
-
-                    // --- ĐÃ SỬA Ở ĐÂY: Khởi tạo ProductItem và gán ảnh vào ---
-                    ProductItem productItem = new ProductItem(id, name, price, "---", "Đang đấu", seller, endTime);
-                    productItem.setImageBase64(imageBase64);
-
-                    ui.addProduct(productItem);
-                } catch (Exception e) {
-                    System.err.println("Lỗi parse dữ liệu sản phẩm: " + e.getMessage());
-                }
+            ui.updatePrice(itemId, newPrice, user);
+            if (isFinished) {
+                // Khi phiên kết thúc: disable bid, đổi label, cập nhật card
+                ui.markAuctionFinished(itemId);
             }
         });
     }
 
-    @Override public void onPriceUpdated(String id, String u, double p) { ui.updatePrice(id, (long)p, u); }
-    @Override public void onAuctionEnded(String id, String w, double p) { ui.showAuctionEnded(id, w, (long)p); }
-    @Override public void onError(String msg) { Platform.runLater(() -> ui.showNotification(msg, "error")); }
-    public void joinAuction(String id) { if (webSocketClient != null) webSocketClient.sendJoinRoom(id); ui.enableBidButton(); }
-    public void placeBid(String id, long a) { if (webSocketClient != null) webSocketClient.sendBid(id, a); }
-    public void fetchInitialProducts() {}
+    @Override
+    public void onSessionState(String itemId, double currentPrice, String highestBidder,
+                               List<String> bidHistory, boolean isFinished, long endTime) {
+        Platform.runLater(() -> {
+            ui.updatePrice(itemId, currentPrice, highestBidder);
+            ui.updateBidHistory(itemId, bidHistory);
+            // Cập nhật endTime cho sản phẩm (quan trọng khi client join lại sau restart)
+            ui.updateProductEndTime(itemId, endTime);
+            if (isFinished) {
+                ui.markAuctionFinished(itemId);
+            } else {
+                ui.enableBidButton();
+            }
+        });
+    }
+
+    @Override
+    public void onAuctionEnded(String itemId, String winner, double finalPrice, List<String> bidHistory) {
+        Platform.runLater(() -> {
+            ui.updateBidHistory(itemId, bidHistory);
+            ui.markAuctionFinished(itemId);
+            ui.showAuctionEnded(itemId, winner, finalPrice);
+        });
+    }
+
+    @Override
+    public void onError(String message) {
+        Platform.runLater(() -> ui.showNotification("❌ " + message, "error"));
+    }
+
+    // ── ADMIN operations (HTTP) ──────────────────────────────────────────────
+
+    public AdminItemClient.Result deleteItem(String itemId) {
+        return AdminItemClient.deleteItem(ClientMain.getJwtToken(), itemId);
+    }
+
+    public AdminItemClient.Result updateItem(String itemId, String name,
+                                             String description, double price) {
+        return AdminItemClient.updateItem(ClientMain.getJwtToken(), itemId, name, description, price);
+    }
+
+    public AdminItemClient.Result fetchUsers() {
+        return AdminItemClient.fetchUsers(ClientMain.getJwtToken());
+    }
+
+    public AdminItemClient.Result deleteUser(String username) {
+        return AdminItemClient.deleteUser(ClientMain.getJwtToken(), username);
+    }
+
+    public AdminItemClient.Result blockUser(String username) {
+        return AdminItemClient.blockUser(ClientMain.getJwtToken(), username);
+    }
+
+    public AdminItemClient.Result unblockUser(String username) {
+        return AdminItemClient.unblockUser(ClientMain.getJwtToken(), username);
+    }
+
+    public void setJwtToken(String token) { /* kept for compatibility */ }
 }

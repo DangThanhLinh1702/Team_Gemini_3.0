@@ -23,6 +23,8 @@ public class Item {
         this.image = image;
         this.endTime = endTime;
     }
+    public Item() {
+    }
 
     public Item(int id, String name, String description, double startingPrice, String sellerUserName, String image, long endTime) {
         this.id = id;

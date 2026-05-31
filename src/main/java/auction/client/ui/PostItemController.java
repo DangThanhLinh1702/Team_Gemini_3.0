@@ -60,11 +60,7 @@ public class PostItemController {
             return;
         }
 
-        if (base64Image.isEmpty()) {
-            System.out.println("Lỗi: Bạn chưa chọn ảnh cho sản phẩm!");
-            return;
-        }
-
+        // Ảnh không bắt buộc - nếu không có thì gửi chuỗi rỗng
         try {
             double price = Double.parseDouble(priceStr);
             int durationInSeconds = Integer.parseInt(durationStr); // Đọc thời gian theo GIÂY

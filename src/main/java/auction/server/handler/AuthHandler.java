@@ -13,6 +13,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class AuthHandler implements HttpHandler {
     private final UserService userService = new UserService();
@@ -24,8 +26,8 @@ public class AuthHandler implements HttpHandler {
             String httpMethod = exchange.getRequestMethod().toUpperCase();
             String path = exchange.getRequestURI().getPath();
 
+            // ── GET /users — lấy danh sách tất cả user (ADMIN) ───────────────
             if ("GET".equals(httpMethod) && "/users".equals(path)) {
-                // ✓ Check admin
                 String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
                 if (authHeader != null && authHeader.startsWith("Bearer ")) {
                     String token = authHeader.substring(7);
@@ -38,6 +40,61 @@ public class AuthHandler implements HttpHandler {
                     }
                 }
                 HttpResponseUtil.sendHttpResponse(exchange, 403, new ResponseDTO("fail", "Chỉ ADMIN mới có quyền xem"));
+                return;
+            }
+
+            // ── DELETE /users/{username} — xóa user (ADMIN) ──────────────────
+            if ("DELETE".equals(httpMethod) && path.startsWith("/users/")) {
+                if (!isAdminRequest(exchange)) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 403, new ResponseDTO("fail", "Chỉ ADMIN mới có quyền này"));
+                    return;
+                }
+                String rawUsername = path.substring("/users/".length());
+                String targetUsername = java.net.URLDecoder.decode(rawUsername, java.nio.charset.StandardCharsets.UTF_8);
+                if (targetUsername.isEmpty()) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 400, new ResponseDTO("fail", "Thiếu username"));
+                    return;
+                }
+                boolean deleted = userService.deleteUser(targetUsername);
+                if (deleted) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 200, new ResponseDTO("success", "Đã xóa tài khoản: " + targetUsername));
+                } else {
+                    HttpResponseUtil.sendHttpResponse(exchange, 404, new ResponseDTO("fail", "Không tìm thấy tài khoản"));
+                }
+                return;
+            }
+
+            // ── POST /users/{username}/block — block user (ADMIN) ─────────────
+            if ("POST".equals(httpMethod) && path.matches("/users/.+/block")) {
+                if (!isAdminRequest(exchange)) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 403, new ResponseDTO("fail", "Chỉ ADMIN mới có quyền này"));
+                    return;
+                }
+                String rawUsername = path.replaceFirst("/users/", "").replace("/block", "");
+                String targetUsername = java.net.URLDecoder.decode(rawUsername, java.nio.charset.StandardCharsets.UTF_8);
+                boolean blocked = userService.blockUser(targetUsername);
+                if (blocked) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 200, new ResponseDTO("success", "Đã block tài khoản: " + targetUsername));
+                } else {
+                    HttpResponseUtil.sendHttpResponse(exchange, 404, new ResponseDTO("fail", "Không tìm thấy tài khoản"));
+                }
+                return;
+            }
+
+            // ── POST /users/{username}/unblock — unblock user (ADMIN) ─────────
+            if ("POST".equals(httpMethod) && path.matches("/users/.+/unblock")) {
+                if (!isAdminRequest(exchange)) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 403, new ResponseDTO("fail", "Chỉ ADMIN mới có quyền này"));
+                    return;
+                }
+                String rawUsername = path.replaceFirst("/users/", "").replace("/unblock", "");
+                String targetUsername = java.net.URLDecoder.decode(rawUsername, java.nio.charset.StandardCharsets.UTF_8);
+                boolean unblocked = userService.unblockUser(targetUsername);
+                if (unblocked) {
+                    HttpResponseUtil.sendHttpResponse(exchange, 200, new ResponseDTO("success", "Đã unblock tài khoản: " + targetUsername));
+                } else {
+                    HttpResponseUtil.sendHttpResponse(exchange, 404, new ResponseDTO("fail", "Không tìm thấy tài khoản"));
+                }
                 return;
             }
 
@@ -67,12 +124,28 @@ public class AuthHandler implements HttpHandler {
         }
     }
 
+    // Helper: kiểm tra request có phải từ ADMIN không
+    private boolean isAdminRequest(HttpExchange exchange) {
+        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            DecodedJWT jwt = JwtUtil.verifyToken(token);
+            return jwt != null && "ADMIN".equals(jwt.getClaim("role").asString());
+        }
+        return false;
+    }
+
     private void handleLogin(HttpExchange exchange, UserDTO userDTO) throws IOException {
         User user = userService.loginAndGetUser(userDTO.getUsername(), userDTO.getPassword());
         if (user != null) {
             String token = JwtUtil.createToken(user.getUsername(), user.getRole());
 
-            ResponseDTO successResponse = new ResponseDTO("success", "Đăng nhập thành công", token);
+            // Trả về data dạng Object gồm token + role để client đọc được
+            Map<String, String> data = new HashMap<>();
+            data.put("token", token);
+            data.put("role", user.getRole());
+
+            ResponseDTO successResponse = new ResponseDTO("success", "Đăng nhập thành công", data);
             HttpResponseUtil.sendHttpResponse(exchange, 200, successResponse);
         } else {
             HttpResponseUtil.sendHttpResponse(exchange, 401, new ResponseDTO("fail", "Sai tài khoản hoặc mật khẩu"));

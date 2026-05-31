@@ -1,31 +1,34 @@
 package auction.server.model;
 
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
+/**
+ * Đại diện cho một phiên đấu giá trong RAM.
+ * Mỗi phiên gắn với 1 item, theo dõi giá hiện tại, người dẫn đầu, lịch sử đặt giá.
+ */
 public class AuctionSession {
-    private int auctionId;        // ID phiên đấu giá
-    private int itemId;           // ID sản phẩm
-    private int sellerId;         // ID người bán
-    private double currentPrice;  // Giá hiện tại
-    private String highestBidder; // Username người đặt giá cao nhất
-    private boolean isFinished;   // Trạng thái kết thúc
-    private Timestamp startTime;  // Thời gian bắt đầu
-    private Timestamp endTime;    // Thời gian kết thúc
+    private int auctionId;   // ID trong bảng auctions (DB)
+    private int itemId;
+    private int sellerId;
+    private double currentPrice;
+    private String highestBidder;
+    private boolean isFinished;
+    private Timestamp startTime;
+    private Timestamp endTime;
 
-    public enum Role {
-        SELLER, BIDDER
-    }
-    private String currentSeller;
-    private final Set<String> bidders = new HashSet<>();
-
-    // Lưu lịch sử đặt giá ngay trong phiên (thay cho bảng bids)
+    // Lịch sử đặt giá trong phiên (chỉ lưu trong RAM, hiển thị realtime)
     private final List<String> bidHistory = new ArrayList<>();
 
-    public AuctionSession(int itemId, int sellerId, double startingPrice, Timestamp startTime, Timestamp endTime) {
+    private static final SimpleDateFormat SDF = new SimpleDateFormat("HH:mm:ss");
+
+    /**
+     * Constructor chính - dùng khi tạo phiên mới từ code.
+     */
+    public AuctionSession(int itemId, int sellerId, double startingPrice,
+                          Timestamp startTime, Timestamp endTime) {
         this.itemId = itemId;
         this.sellerId = sellerId;
         this.currentPrice = startingPrice;
@@ -35,96 +38,79 @@ public class AuctionSession {
         this.endTime = endTime;
     }
 
-    // Đặt giá mới
-    public synchronized boolean placeBid(String username, double newBidPrice) {
+    /**
+     * Đặt giá mới. Trả về true nếu hợp lệ và được chấp nhận.
+     * Yêu cầu: phiên đang chạy VÀ giá mới PHẢI lớn hơn giá hiện tại.
+     */
+    public synchronized boolean placeBid(String username, double newPrice) {
         if (!isAuctionRunning()) return false;
+        if (newPrice <= this.currentPrice) return false;
 
-        // Tránh việc Seller tự buff giá của chính mình
-        if (username.equals(currentSeller)) return false;
+        this.currentPrice = newPrice;
+        this.highestBidder = username;
 
-        // Phải là người đã chọn vai trò Bidder mới được đặt giá
-        if (!bidders.contains(username)) return false;
-
-        if (newBidPrice > this.currentPrice) {
-            this.currentPrice = newBidPrice;
-            this.highestBidder = username;
-            bidHistory.add(username + " đặt giá " + newBidPrice);
-            return true;
-        }
-        return false;
-    }
-    public synchronized boolean changeUserRole(String username, Role desiredRole) {
-        // 1. Tuyệt đối không cho đổi vai trò nếu trận đấu đang diễn ra
-        if (isAuctionRunning()) {
-            return false;
-        }
-
-        if (desiredRole == Role.SELLER) {
-            // Nếu người này muốn làm Seller
-            // Kiểm tra xem phòng đã có Seller khác chưa
-            if (currentSeller != null && !currentSeller.equals(username)) {
-                return false; // Báo lỗi: "Đã có người làm Seller cho phòng này"
-            }
-
-            // Nếu hợp lệ: Rút người này khỏi danh sách Bidder (nếu có) và đưa lên làm Seller
-            bidders.remove(username);
-            currentSeller = username;
-            return true;
-
-        } else if (desiredRole == Role.BIDDER) {
-            // Nếu người này muốn làm Bidder
-            // Nếu họ đang là Seller mà muốn làm Bidder -> Trả lại ghế Seller thành null
-            if (currentSeller != null && currentSeller.equals(username)) {
-                currentSeller = null;
-            }
-
-            // Thêm người này vào danh sách Bidder
-            bidders.add(username);
-            return true;
-        }
-
-        return false;
+        // Ghi lịch sử vào RAM (hiển thị realtime cho client)
+        String timeStr = SDF.format(new Timestamp(System.currentTimeMillis()));
+        bidHistory.add(String.format("[%s] %s → %,.0f VNĐ", timeStr, username, newPrice));
+        return true;
     }
 
+    /**
+     * Kiểm tra phiên có đang chạy không (chưa kết thúc và chưa hết giờ).
+     */
     public boolean isAuctionRunning() {
         if (isFinished) return false;
         Timestamp now = new Timestamp(System.currentTimeMillis());
-        return now.after(startTime) && now.before(endTime);
-    }
-    public boolean canStartAuction() {
-        return currentSeller != null && bidders.size() >= 2;
+        return now.before(endTime);
     }
 
-    // Kết thúc phiên đấu giá
+    /**
+     * Đánh dấu phiên kết thúc, ghi dòng cuối vào lịch sử.
+     */
     public synchronized void finishAuction() {
         this.isFinished = true;
-        bidHistory.add("Phiên kết thúc. Người thắng: " + highestBidder + " với giá " + currentPrice);
+        String timeStr = SDF.format(new Timestamp(System.currentTimeMillis()));
+        bidHistory.add(String.format("[%s] ⏰ Phiên kết thúc — Người thắng: %s với giá %,.0f VNĐ",
+                timeStr, highestBidder, currentPrice));
     }
 
-    // Getter & Setter
-    public int getAuctionId() { return auctionId; }
-    public void setAuctionId(int auctionId) { this.auctionId = auctionId; }
+    // ── Getters & Setters ────────────────────────────────────────────────────
 
-    public int getItemId() { return itemId; }
-    public void setItemId(int itemId) { this.itemId = itemId; }
+    public int getAuctionId()              { return auctionId; }
+    public void setAuctionId(int id)       { this.auctionId = id; }
 
-    public int getSellerId() { return sellerId; }
-    public void setSellerId(int sellerId) { this.sellerId = sellerId; }
+    public int getItemId()                 { return itemId; }
+    public void setItemId(int id)          { this.itemId = id; }
 
-    public double getCurrentPrice() { return currentPrice; }
-    public void setCurrentPrice(double currentPrice) { this.currentPrice = currentPrice; }
+    public int getSellerId()               { return sellerId; }
+    public void setSellerId(int id)        { this.sellerId = id; }
 
-    public String getHighestBidder() { return highestBidder; }
-    public void setHighestBidder(String highestBidder) { this.highestBidder = highestBidder; }
+    public double getCurrentPrice()        { return currentPrice; }
+    public void setCurrentPrice(double p)  { this.currentPrice = p; }
 
-    public boolean isFinished() { return isFinished; }
-    public void setFinished(boolean finished) { isFinished = finished; }
+    public String getHighestBidder()       { return highestBidder; }
+    public void setHighestBidder(String b) { this.highestBidder = b; }
 
-    public Timestamp getStartTime() { return startTime; }
-    public void setStartTime(Timestamp startTime) { this.startTime = startTime; }
+    public boolean isFinished()            { return isFinished; }
+    public void setFinished(boolean f)     { this.isFinished = f; }
 
-    public Timestamp getEndTime() { return endTime; }
-    public void setEndTime(Timestamp endTime) { this.endTime = endTime; }
+    public Timestamp getStartTime()        { return startTime; }
+    public void setStartTime(Timestamp t)  { this.startTime = t; }
 
-    public List<String> getBidHistory() { return bidHistory; }
+    public Timestamp getEndTime()          { return endTime; }
+    public void setEndTime(Timestamp t)    { this.endTime = t; }
+
+    /** Trả về bản sao danh sách lịch sử (tránh bị sửa từ bên ngoài) */
+    public List<String> getBidHistory()    { return new ArrayList<>(bidHistory); }
+
+    /**
+     * Nạp lại lịch sử từ DB vào RAM (gọi sau khi server khởi động lại).
+     * Xóa dữ liệu cũ trong RAM trước khi nạp để tránh trùng lặp.
+     */
+    public synchronized void loadBidHistory(List<String> history) {
+        bidHistory.clear();
+        if (history != null) {
+            bidHistory.addAll(history);
+        }
+    }
 }
