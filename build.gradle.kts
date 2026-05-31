@@ -28,11 +28,27 @@ tasks.register<JavaExec>("testDatabase") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
+
 dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.auth0:java-jwt:4.5.1")
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
     implementation("com.mysql:mysql-connector-j:8.0.33")
+
+    // Testing dependencies
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
+    testImplementation("org.junit.platform:junit-platform-suite:1.9.2")
+    testImplementation("org.mockito:mockito-core:5.2.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.2.0")
+    testImplementation("org.assertj:assertj-core:3.24.1")
 }
 
 
