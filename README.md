@@ -1,4 +1,4 @@
-
+# 🏷️ HỆ THỐNG ĐẤU GIÁ TRỰC TUYẾN (AUCTION APP) - BÀI TẬP LỚN LTNC
 
 ## 1. Mô tả ngắn gọn bài toán và phạm vi hệ thống
 - **Bài toán:** Xây dựng một ứng dụng đấu giá trực tuyến hoạt động theo mô hình Client-Server. Ứng dụng cho phép nhiều người dùng kết nối đồng thời để đăng bán tài sản và tham gia trả giá (bidding) cạnh tranh theo thời gian thực.
@@ -45,11 +45,27 @@ Team_Gemini_3.0/
 ```
 
 ## 4. Vị trí các file jar
+Đường dẫn: Team_Gemini_3.0/build/libs/
 
+File Server: AuctionApp-1.0-server.jar
 
-## 5. Hướng dẫn chạy server
+File Client: AuctionApp-1.0-client.jar
 
+## 5. Hướng dẫn chạy Server / Client
+**Lưu ý:** Bắt buộc khởi chạy Server trước Client.
 
+- **Bước 1: Khởi chạy Server**
+  Mở Terminal/CMD và gõ lần lượt các lệnh sau:
+  ```
+  cd Team_Gemini_3.0/build/libs
+  java -jar AuctionApp-1.0-server.jar
+  ```
+
+- **Bước 2: Khởi chạy Client**
+  ```
+  cd Team_Gemini_3.0/build/libs
+  java -jar AuctionApp-1.0-client.jar
+  ```
 
 
 ## 6. Danh sách chức năng đã hoàn thành
@@ -61,12 +77,12 @@ Team_Gemini_3.0/
 
 * Xử lý thời gian thực (Real-time):
 
--Cập nhật tự động trạng thái giá cao nhất hiện tại cho toàn bộ các Client.
+- Cập nhật tự động trạng thái giá cao nhất hiện tại cho toàn bộ các Client.
 
--Hiển thị danh sách người đang dẫn đầu phiên đấu giá.
+- Hiển thị danh sách người đang dẫn đầu phiên đấu giá.
 
--Đồng hồ đếm ngược thời gian kết thúc phiên đấu giá chuẩn xác.
+- Đồng hồ đếm ngược thời gian kết thúc phiên đấu giá chuẩn xác.
 
--Lưu trữ dữ liệu: Lưu trữ an toàn thông tin người dùng, chi tiết sản phẩm và toàn bộ lịch sử các lần trả giá vào Database.
+- Lưu trữ dữ liệu: Lưu trữ an toàn thông tin người dùng, chi tiết sản phẩm và toàn bộ lịch sử các lần trả giá vào Database.
 
 ## 7. Link PDF và video demo
