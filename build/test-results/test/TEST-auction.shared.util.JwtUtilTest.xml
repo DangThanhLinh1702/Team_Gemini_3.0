@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="JWT Utility Tests" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-05-31T09:09:11.510Z" hostname="LAPTOP-E3IJCN9N" time="0.179">
+<testsuite name="JWT Utility Tests" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-05-31T13:01:00.173Z" hostname="LAPTOP-E3IJCN9N" time="0.187">
   <properties/>
-  <testcase name="Should extract role from token" classname="auction.shared.util.JwtUtilTest" time="0.167"/>
-  <testcase name="Should create a valid token" classname="auction.shared.util.JwtUtilTest" time="0.001"/>
+  <testcase name="Should extract role from token" classname="auction.shared.util.JwtUtilTest" time="0.174"/>
+  <testcase name="Should create a valid token" classname="auction.shared.util.JwtUtilTest" time="0.0"/>
   <testcase name="Should extract username from token" classname="auction.shared.util.JwtUtilTest" time="0.001"/>
-  <testcase name="Should return null username for invalid token" classname="auction.shared.util.JwtUtilTest" time="0.003"/>
+  <testcase name="Should return null username for invalid token" classname="auction.shared.util.JwtUtilTest" time="0.002"/>
   <testcase name="Should create tokens with different roles" classname="auction.shared.util.JwtUtilTest" time="0.002"/>
   <testcase name="Should return null role for invalid token" classname="auction.shared.util.JwtUtilTest" time="0.001"/>
-  <testcase name="Should return null for invalid token" classname="auction.shared.util.JwtUtilTest" time="0.001"/>
+  <testcase name="Should return null for invalid token" classname="auction.shared.util.JwtUtilTest" time="0.0"/>
   <testcase name="Should verify a valid token" classname="auction.shared.util.JwtUtilTest" time="0.001"/>
   <testcase name="Should have different tokens for different users" classname="auction.shared.util.JwtUtilTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>

@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="DTO Tests" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-05-31T09:09:11.468Z" hostname="LAPTOP-E3IJCN9N" time="0.018">
+<testsuite name="DTO Tests" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-05-31T13:01:00.110Z" hostname="LAPTOP-E3IJCN9N" time="0.031">
   <properties/>
   <testcase name="Should set and get status" classname="auction.shared.dto.DTOTest" time="0.001"/>
-  <testcase name="Should handle null data in ResponseDTO" classname="auction.shared.dto.DTOTest" time="0.0"/>
-  <testcase name="Should create ResponseDTO with status and message" classname="auction.shared.dto.DTOTest" time="0.0"/>
-  <testcase name="Should set and get data" classname="auction.shared.dto.DTOTest" time="0.001"/>
-  <testcase name="Should serialize ResponseDTO to JSON" classname="auction.shared.dto.DTOTest" time="0.007"/>
-  <testcase name="Should set and get message" classname="auction.shared.dto.DTOTest" time="0.0"/>
-  <testcase name="Should deserialize LoginRequestDTO from JSON" classname="auction.shared.dto.DTOTest" time="0.002"/>
-  <testcase name="Should create ResponseDTO with data" classname="auction.shared.dto.DTOTest" time="0.001"/>
-  <testcase name="Should round-trip ResponseDTO through JSON" classname="auction.shared.dto.DTOTest" time="0.004"/>
+  <testcase name="Should handle null data in ResponseDTO" classname="auction.shared.dto.DTOTest" time="0.001"/>
+  <testcase name="Should create ResponseDTO with status and message" classname="auction.shared.dto.DTOTest" time="0.001"/>
+  <testcase name="Should set and get data" classname="auction.shared.dto.DTOTest" time="0.0"/>
+  <testcase name="Should serialize ResponseDTO to JSON" classname="auction.shared.dto.DTOTest" time="0.01"/>
+  <testcase name="Should set and get message" classname="auction.shared.dto.DTOTest" time="0.001"/>
+  <testcase name="Should deserialize LoginRequestDTO from JSON" classname="auction.shared.dto.DTOTest" time="0.005"/>
+  <testcase name="Should create ResponseDTO with data" classname="auction.shared.dto.DTOTest" time="0.0"/>
+  <testcase name="Should round-trip ResponseDTO through JSON" classname="auction.shared.dto.DTOTest" time="0.008"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

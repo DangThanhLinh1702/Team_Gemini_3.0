@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="Item Model Tests" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-05-31T09:09:11.433Z" hostname="LAPTOP-E3IJCN9N" time="0.01">
+<testsuite name="Item Model Tests" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-05-31T13:01:00.067Z" hostname="LAPTOP-E3IJCN9N" time="0.01">
   <properties/>
   <testcase name="Should have future end time" classname="auction.server.model.ItemTest" time="0.001"/>
-  <testcase name="Should update item description" classname="auction.server.model.ItemTest" time="0.001"/>
-  <testcase name="Should create item with ID parameter" classname="auction.server.model.ItemTest" time="0.0"/>
-  <testcase name="Should update item name" classname="auction.server.model.ItemTest" time="0.001"/>
-  <testcase name="Should create item with correct properties" classname="auction.server.model.ItemTest" time="0.001"/>
-  <testcase name="Should validate positive starting price" classname="auction.server.model.ItemTest" time="0.0"/>
+  <testcase name="Should update item description" classname="auction.server.model.ItemTest" time="0.0"/>
+  <testcase name="Should create item with ID parameter" classname="auction.server.model.ItemTest" time="0.001"/>
+  <testcase name="Should update item name" classname="auction.server.model.ItemTest" time="0.0"/>
+  <testcase name="Should create item with correct properties" classname="auction.server.model.ItemTest" time="0.0"/>
+  <testcase name="Should validate positive starting price" classname="auction.server.model.ItemTest" time="0.001"/>
   <testcase name="Should update seller username" classname="auction.server.model.ItemTest" time="0.0"/>
-  <testcase name="Should update image URL" classname="auction.server.model.ItemTest" time="0.001"/>
-  <testcase name="Should set and get item ID" classname="auction.server.model.ItemTest" time="0.0"/>
-  <testcase name="Should update starting price" classname="auction.server.model.ItemTest" time="0.0"/>
-  <testcase name="Should update end time" classname="auction.server.model.ItemTest" time="0.001"/>
+  <testcase name="Should update image URL" classname="auction.server.model.ItemTest" time="0.0"/>
+  <testcase name="Should set and get item ID" classname="auction.server.model.ItemTest" time="0.001"/>
+  <testcase name="Should update starting price" classname="auction.server.model.ItemTest" time="0.001"/>
+  <testcase name="Should update end time" classname="auction.server.model.ItemTest" time="0.0"/>
   <testcase name="Should create empty item" classname="auction.server.model.ItemTest" time="0.0"/>
-  <testcase name="Should update seller ID" classname="auction.server.model.ItemTest" time="0.0"/>
+  <testcase name="Should update seller ID" classname="auction.server.model.ItemTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

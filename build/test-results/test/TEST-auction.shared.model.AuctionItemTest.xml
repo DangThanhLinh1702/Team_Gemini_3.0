@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="AuctionItem Model Tests" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-05-31T09:09:11.488Z" hostname="LAPTOP-E3IJCN9N" time="0.013">
+<testsuite name="AuctionItem Model Tests" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-05-31T13:01:00.144Z" hostname="LAPTOP-E3IJCN9N" time="0.02">
   <properties/>
-  <testcase name="Should set and get current bidder" classname="auction.shared.model.AuctionItemTest" time="0.004"/>
+  <testcase name="Should set and get current bidder" classname="auction.shared.model.AuctionItemTest" time="0.006"/>
   <testcase name="Should set and get start time" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
-  <testcase name="Should set and get status" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
+  <testcase name="Should set and get status" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
   <testcase name="Should set and get description" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
   <testcase name="Should create auction item with correct properties" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
   <testcase name="Should update current price for bidding" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
-  <testcase name="Should create empty auction item" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
-  <testcase name="Should set and get name" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
-  <testcase name="Should set and get seller username" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
+  <testcase name="Should create empty auction item" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
+  <testcase name="Should set and get name" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
+  <testcase name="Should set and get seller username" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
   <testcase name="Should set and get item ID" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
-  <testcase name="Should set and get starting price" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
-  <testcase name="Should set and get end time" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
-  <testcase name="Should have initial status as ACTIVE" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
-  <testcase name="Current price should match starting price initially" classname="auction.shared.model.AuctionItemTest" time="0.0"/>
+  <testcase name="Should set and get starting price" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
+  <testcase name="Should set and get end time" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
+  <testcase name="Should have initial status as ACTIVE" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
+  <testcase name="Current price should match starting price initially" classname="auction.shared.model.AuctionItemTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
