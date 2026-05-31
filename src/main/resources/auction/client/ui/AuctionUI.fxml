@@ -4,11 +4,12 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
+<?import javafx.scene.image.ImageView?>
 
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="auction.client.ui.AuctionUI"
-            prefWidth="900" prefHeight="600"
+            prefWidth="1100" prefHeight="650"
             style="-fx-background-color: #f4f6f9;">
 
     <top>
@@ -16,18 +17,24 @@
               style="-fx-background-color: #2c3e50; -fx-padding: 15;">
             <Label text="🏷 Auction App"
                    style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
-
             <Region HBox.hgrow="ALWAYS"/>
-
             <Button fx:id="btnPostItem"
                     text="➕ Đăng bán sản phẩm"
                     onAction="#handlePostItem"
                     visible="false"
                     managed="${btnPostItem.visible}"
                     style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
-
+            <Button fx:id="btnManageUsers"
+                    text="👥 Quản lý User"
+                    onAction="#handleManageUsers"
+                    visible="false"
+                    managed="${btnManageUsers.visible}"
+                    style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 15 6 15; -fx-background-radius: 5;"/>
             <Label fx:id="lblCurrentUser"
                    style="-fx-text-fill: #1abc9c; -fx-font-size: 13px; -fx-font-weight: bold;"/>
+            <Button text="🚪 Đăng xuất"
+                    onAction="#handleLogout"
+                    style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 5;"/>
         </HBox>
     </top>
 
@@ -40,28 +47,58 @@
 
                 <StackPane VBox.vgrow="ALWAYS">
 
-                    <ScrollPane fx:id="gridScrollPane" fitToWidth="true" style="-fx-background-color: transparent;">
-                        <FlowPane fx:id="productGrid" hgap="15" vgap="15"
-                                  style="-fx-background-color: white; -fx-padding: 10;" alignment="TOP_CENTER"/>
+                    <ScrollPane fx:id="gridScrollPane" fitToWidth="true"
+                                managed="${gridScrollPane.visible}"
+                                style="-fx-background-color: transparent;">
+                        <TilePane fx:id="productGrid" hgap="15" vgap="15" prefColumns="3"
+                                  style="-fx-background-color: white; -fx-padding: 15;"
+                                  alignment="TOP_LEFT"/>
                     </ScrollPane>
 
-                    <VBox fx:id="detailPanel" visible="false" spacing="15"
-                          style="-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-radius: 5; -fx-padding: 20;">
-                        <Button text="⬅ Trở lại" onAction="#handleBackToGrid"
-                                style="-fx-background-color: #ecf0f1; -fx-cursor: hand; -fx-font-weight: bold;"/>
+                    <VBox fx:id="detailPanel" visible="false" spacing="12"
+                          managed="${detailPanel.visible}"
+                          style="-fx-background-color: white; -fx-border-color: #bdc3c7;
+                                 -fx-border-radius: 5; -fx-padding: 20;">
+
+                        <Button text="⬅ Trở lại danh sách" onAction="#handleBackToGrid"
+                                style="-fx-background-color: #ecf0f1; -fx-cursor: hand;
+                                       -fx-font-weight: bold; -fx-background-radius: 5;"/>
                         <Separator/>
+
                         <HBox spacing="20">
-                            <StackPane prefWidth="250" prefHeight="250" style="-fx-background-color: #f4f6f9; -fx-border-color: #bdc3c7;">
-                                <Label text="[Hình ảnh Sản phẩm]" textFill="#7f8c8d"/>
+                            <StackPane prefWidth="250" prefHeight="250"
+                                       style="-fx-background-color: #f4f6f9;
+                                              -fx-border-color: #bdc3c7; -fx-border-radius: 5;">
+                                <ImageView fx:id="imgDetailPreview" fitWidth="240" fitHeight="240"
+                                           preserveRatio="true"/>
                             </StackPane>
-                            <VBox spacing="10">
-                                <Label fx:id="lblDetailName" text="Tên: " style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
-                                <Label fx:id="lblDetailSeller" text="Người bán: " style="-fx-font-size: 14px;"/>
-                                <Label text="Lịch sử đấu giá:" style="-fx-font-weight: bold; -fx-margin-top: 10;"/>
-                                <ListView fx:id="listBidHistory" VBox.vgrow="ALWAYS" prefHeight="150" style="-fx-font-size: 12px;"/>
+
+                            <VBox spacing="8" HBox.hgrow="ALWAYS">
+                                <Label fx:id="lblDetailName" text="Tên: "
+                                       style="-fx-font-size: 18px; -fx-font-weight: bold;
+                                              -fx-text-fill: #2c3e50;"
+                                       wrapText="true"/>
+                                <Label fx:id="lblDetailSeller" text="Người bán: "
+                                       style="-fx-font-size: 14px; -fx-text-fill: #7f8c8d;"/>
+                                <Separator/>
+
+                                <VBox spacing="4" VBox.vgrow="ALWAYS">
+                                    <HBox alignment="CENTER_LEFT" spacing="8">
+                                        <Label text="📋 Lịch sử đấu giá"
+                                               style="-fx-font-weight: bold; -fx-font-size: 13px;
+                                                      -fx-text-fill: #2c3e50;"/>
+                                        <Label text="(cập nhật realtime)"
+                                               style="-fx-font-size: 11px; -fx-text-fill: #27ae60;"/>
+                                    </HBox>
+                                    <ListView fx:id="listBidHistory" VBox.vgrow="ALWAYS"
+                                              prefHeight="200"
+                                              style="-fx-font-size: 12px; -fx-background-color: #fafafa;
+                                                     -fx-border-color: #dce1e7; -fx-border-radius: 5;"/>
+                                </VBox>
                             </VBox>
                         </HBox>
                     </VBox>
+
                 </StackPane>
             </VBox>
 
@@ -79,7 +116,7 @@
                 <Separator/>
 
                 <VBox spacing="4">
-                    <Label text="💰 Giá hiện tại:"
+                    <Label fx:id="lblCurrentPriceTitle" text="💰 Giá hiện tại:"
                            style="-fx-font-size: 13px; -fx-text-fill: #7f8c8d;"/>
                     <Label fx:id="lblCurrentPrice"
                            text="0 VNĐ"
@@ -89,11 +126,12 @@
                 <VBox spacing="4"
                       style="-fx-background-color: #eafaf1; -fx-border-color: #27ae60;
                              -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;">
-                    <Label text="🏆 Người đang dẫn đầu:"
+                    <Label fx:id="lblLeaderTitle" text="🏆 Người đang dẫn đầu:"
                            style="-fx-font-size: 12px; -fx-text-fill: #27ae60;"/>
                     <Label fx:id="lblLeader"
                            text="---"
-                           style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1e8449;"/>
+                           style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1e8449;"
+                           wrapText="true"/>
                 </VBox>
 
                 <VBox spacing="4" alignment="CENTER"
@@ -112,15 +150,14 @@
                     <Label text="✏️ Nhập giá của bạn (VNĐ):"
                            style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
                     <TextField fx:id="txtBidAmount"
-                               promptText="Nhập số tiền..."
+                               promptText="Nhập số tiền (VD: 150000)..."
                                style="-fx-font-size: 14px; -fx-padding: 8; -fx-border-radius: 6;
                                       -fx-background-radius: 6; -fx-border-color: #3498db;"/>
                 </VBox>
 
                 <VBox spacing="8">
-
                     <Button fx:id="btnBid"
-                            text="💸 Đặt giá"
+                            text="💸 Đặt giá ngay"
                             maxWidth="Infinity"
                             onAction="#handleBid"
                             disable="true"
@@ -128,26 +165,33 @@
                                    -fx-font-size: 13px; -fx-font-weight: bold;
                                    -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
                                    -fx-cursor: hand;"/>
-
                     <Button fx:id="btnChangeRole"
                             text="🔄 Đổi Vai Trò"
                             maxWidth="Infinity"
                             onAction="#handleToggleRole"
-                            style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                            managed="${btnChangeRole.visible}"
+                            style="-fx-background-color: #8e44ad; -fx-text-fill: white;
+                                   -fx-font-size: 13px; -fx-font-weight: bold;
+                                   -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
+                                   -fx-cursor: hand;"/>
 
                     <Button fx:id="btnRefresh"
                             text="🔄 Làm mới danh sách"
                             maxWidth="Infinity"
                             onAction="#handleRefresh"
-                            style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                            managed="${btnRefresh.visible}"
+                            style="-fx-background-color: #7f8c8d; -fx-text-fill: white;
+                                   -fx-font-size: 13px; -fx-font-weight: bold;
+                                   -fx-padding: 10; -fx-border-radius: 6; -fx-background-radius: 6;
+                                   -fx-cursor: hand;"/>
                 </VBox>
+
                 <Separator/>
 
                 <Label fx:id="lblNotification"
                        text=""
                        wrapText="true"
                        style="-fx-font-size: 12px; -fx-text-fill: #e74c3c;"/>
-
             </VBox>
         </HBox>
     </center>
@@ -157,7 +201,7 @@
             <Label text="📋 Lịch sử hoạt động:"
                    style="-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #7f8c8d;"/>
             <TextArea fx:id="txtLog"
-                      prefHeight="80"
+                      prefHeight="70"
                       editable="false"
                       wrapText="true"
                       style="-fx-font-size: 11px; -fx-border-color: #dce1e7;"/>

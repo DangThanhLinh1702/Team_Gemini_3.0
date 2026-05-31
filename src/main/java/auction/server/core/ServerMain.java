@@ -12,49 +12,32 @@ import java.util.concurrent.Executors;
 public class ServerMain {
     public static void main(String... args) {
         try {
-            // ========== KHỞI ĐỘNG HTTP SERVER (Port 8080) ==========
+            // ========== HTTP SERVER — Port 8080 ==========
             HttpServer httpServer = HttpServer.create(new InetSocketAddress(8080), 0);
-            AuthHandler authHandler = new AuthHandler();
-            ItemListHandler itemListHandler = new ItemListHandler();
-            ItemHandler itemHandler = new ItemHandler();
-
-            // Các endpoints
-            httpServer.createContext("/login", authHandler);
-            httpServer.createContext("/register", authHandler);
-            httpServer.createContext("/users", authHandler);
-            httpServer.createContext("/items", itemHandler);         // GET + POST
-            httpServer.createContext("/auctions", itemListHandler);  // GET
-
+            httpServer.createContext("/login",    new AuthHandler());
+            httpServer.createContext("/register", new AuthHandler());
+            httpServer.createContext("/users",    new AuthHandler());
+            httpServer.createContext("/me",       new AuthHandler());
+            httpServer.createContext("/items",    new ItemHandler());
+            httpServer.createContext("/auctions", new ItemListHandler());
             httpServer.setExecutor(Executors.newCachedThreadPool());
             httpServer.start();
+            System.out.println("✓ HTTP Server đang chạy tại cổng 8080");
 
-            System.out.println("✓ HTTP Server started on port 8080");
-            System.out.println("  Endpoints:");
-            System.out.println("    - POST /login");
-            System.out.println("    - POST /register");
-            System.out.println("    - GET  /users");
-            System.out.println("    - GET  /items");
-            System.out.println("    - POST /items (SELLER auth)");
-            System.out.println("    - GET  /auctions");
-
-            // ========== KHỞI ĐỘNG WEBSOCKET SERVER (Port 8081) ==========
+            // ========== WEBSOCKET SERVER — Port 8081 ==========
             AuctionWebSocketServer wsServer = new AuctionWebSocketServer(8081);
             wsServer.start();
+            System.out.println("✓ WebSocket Server đang chạy tại cổng 8081");
 
-            System.out.println("\n✓ WebSocket Server started on port 8081");
-            System.out.println("  Actions: JOIN, BID");
-
-            // 🌟 TẠO SẢN PHẨM MẪU (DUMMY DATA) TẠI ĐÂY 🌟
-            // Giả sử AuctionManager của bạn có hàm tạo phiên đấu giá tên là createSession
-            // Nếu code báo đỏ, bạn hãy mở class AuctionManager ra kiểm tra xem tên hàm là gì (VD: addSession, createAuction...) rồi sửa lại nhé!
-
-            System.out.println("✓ Đã khởi tạo sản phẩm mẫu trên RAM: Mã [SP01], Giá khởi điểm [10000]");
-
-            System.out.println("SERVER RUNNING SUCCESSFULLY!");
+            System.out.println("\n========================================");
+            System.out.println("  SERVER KHỞI ĐỘNG THÀNH CÔNG!");
+            System.out.println("  HTTP  : http://localhost:8080");
+            System.out.println("  WS    : ws://localhost:8081");
+            System.out.println("========================================");
 
         } catch (IOException e) {
-            System.err.println("Lỗi khi khởi động Server: " + e.getMessage());
-            System.err.println("Stack trace: " + e);
+            System.err.println("❌ Lỗi khởi động Server: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

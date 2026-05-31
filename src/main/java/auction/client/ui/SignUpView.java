@@ -65,7 +65,7 @@ public class SignUpView extends StackPane {
         PasswordField confirmPasswordField = createCustomPasswordField("Confirm Password");
 
         ComboBox<String> roleComboBox = new ComboBox<>();
-        roleComboBox.getItems().addAll("Bidder", "Seller", "Admin");
+        roleComboBox.getItems().addAll("Bidder", "Seller");
         roleComboBox.setValue("Bidder");
         roleComboBox.setMaxWidth(Double.MAX_VALUE);
         roleComboBox.setStyle("-fx-font-size: 14px; -fx-padding: 8; -fx-border-radius: 6; -fx-background-radius: 6; -fx-border-color: #3498db;");

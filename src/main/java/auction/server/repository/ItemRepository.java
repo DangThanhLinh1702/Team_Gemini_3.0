@@ -7,108 +7,149 @@ import java.sql.*;
 import java.util.ArrayList;
 
 public class ItemRepository {
-    private static final ArrayList<Item> allItems = new ArrayList<>();
-
-    public void saveItem(Item item) {
-        String query = "INSERT INTO items (name, description, starting_price, seller_username) VALUES (?, ?, ?, ?)";
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
-
-            preparedStatement.setString(1, item.getName());
-            preparedStatement.setString(2, item.getDescription());
-            preparedStatement.setDouble(3, item.getStartingPrice());
-
-            // Nếu seller_username bị null hoặc rỗng, gán tạm giá trị mặc định để không bị lỗi DB
-            String seller = (item.getSellerUserName() == null || item.getSellerUserName().isEmpty()) ? "Unknown" : item.getSellerUserName();
-            preparedStatement.setString(4, seller);
-
-            preparedStatement.executeUpdate();
-
-            try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    int generatedId = generatedKeys.getInt(1);
-                    item.setId(generatedId);
-                }
-            }
-
-            allItems.add(item);
-            System.out.println("====== [DATABASE] Đã lưu thành công sản phẩm: " + item.getName() + " (ID: " + item.getId() + ") ======");
-
-        } catch (SQLException exception) {
-            System.err.println("❌ LỖI DATABASE KHI LƯU ITEM: " + exception.getMessage());
-            exception.printStackTrace();
-        }
-    }
 
     public ArrayList<Item> getAllItemsFromDatabase() {
         ArrayList<Item> items = new ArrayList<>();
         String query = "SELECT * FROM items";
+
         try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(query);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+             PreparedStatement ps = connection.prepareStatement(query);
+             ResultSet resultSet = ps.executeQuery()) {
 
             while (resultSet.next()) {
-                Item itemObject = new Item(
-                        resultSet.getInt("item_id"),
-                        resultSet.getString("name"),
-                        resultSet.getString("description"),
-                        resultSet.getDouble("starting_price"),
-                        resultSet.getString("seller_username")
-                );
+                // 1. Khởi tạo đối tượng rỗng
+                Item itemObject = new Item();
+
+                // 2. Dùng các hàm SET để gán chính xác từng giá trị, không bao giờ lo nhầm!
+                itemObject.setId(resultSet.getInt("item_id"));
+                itemObject.setName(resultSet.getString("name"));
+                itemObject.setDescription(resultSet.getString("description"));
+
+                // Gán giá tiền (Client sẽ tự đọc trường này để hiện lên UI)
+                itemObject.setStartingPrice(resultSet.getDouble("starting_price"));
+
+                itemObject.setSellerUserName(resultSet.getString("seller_username"));
+
+                // Gán ảnh (Đảm bảo tên cột trong get.. là "image_data" đúng như DB của bạn)
+                itemObject.setImage(resultSet.getString("image_data"));
+
+                itemObject.setEndTime(resultSet.getLong("end_time"));
+
+                // 3. Thêm vào danh sách
                 items.add(itemObject);
             }
         } catch (SQLException exception) {
             System.err.println("❌ LỖI KHI LẤY DANH SÁCH ITEMS: " + exception.getMessage());
         }
+
         return items;
     }
 
+    public void saveItem(Item item) {
+        String query = "INSERT INTO items (name, description, starting_price, seller_username, image_data, end_time) VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+
+            ps.setString(1, item.getName());
+            ps.setString(2, item.getDescription());
+            ps.setDouble(3, item.getStartingPrice());
+            ps.setString(4, item.getSellerUserName());
+
+            // Đã đổi thành item.getImage()
+            ps.setString(5, item.getImage());
+            ps.setLong(6, item.getEndTime());
+
+            ps.executeUpdate();
+
+            try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    item.setId(generatedKeys.getInt(1));
+                }
+            }
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI LƯU ITEM VÀO DB: " + exception.getMessage());
+        }
+    }
+
     public Item findLastInserted() {
-        // ĐÃ SỬA: Sắp xếp theo item_id thay vì start_time không tồn tại
         String query = "SELECT * FROM items ORDER BY item_id DESC LIMIT 1";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                int realId = rs.getInt("item_id");
+                String name = rs.getString("name");
+                String description = rs.getString("description");
+                double startingPrice = rs.getDouble("starting_price");
+                String sellerUsername = rs.getString("seller_username");
+                String image = rs.getString("image_data");
+                long endTime = rs.getLong("end_time");
+
+                return new Item(realId, name, description, startingPrice, sellerUsername, image, endTime);
+            }
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI TÌM ITEM CUỐI: " + exception.getMessage());
+        }
+        return null;
+    }
+
+    public Item findById(int itemId) {
+        String query = "SELECT * FROM items WHERE item_id = ?";
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement ps = connection.prepareStatement(query)) {
 
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return new Item(
-                        rs.getInt("item_id"),
-                        rs.getString("name"),
-                        rs.getString("description"),
-                        rs.getDouble("starting_price"),
-                        rs.getString("seller_username")
-                );
+            ps.setInt(1, itemId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String name = rs.getString("name");
+                    String description = rs.getString("description");
+                    double startingPrice = rs.getDouble("starting_price");
+                    String sellerUsername = rs.getString("seller_username");
+                    String image = rs.getString("image_data");
+                    long endTime = rs.getLong("end_time");
+
+                    return new Item(itemId, name, description, startingPrice, sellerUsername, image, endTime);
+                }
             }
-        } catch (SQLException e) {
-            System.err.println("❌ LỖI LẤY ITEM CUỐI CÙNG: " + e.getMessage());
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI TÌM ITEM THEO ID: " + exception.getMessage());
         }
         return null;
     }
 
-    public Item findById(int id) {
-        String query = "SELECT * FROM items WHERE item_id = ?";
+    // ➕ ĐÃ THÊM: Hàm XÓA sản phẩm theo ID cho Admin
+    public boolean deleteItemById(int itemId) {
+        String query = "DELETE FROM items WHERE item_id = ?";
         try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+             PreparedStatement ps = connection.prepareStatement(query)) {
 
-            preparedStatement.setInt(1, id);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                return new Item(
-                        resultSet.getInt("item_id"),
-                        resultSet.getString("name"),
-                        resultSet.getString("description"),
-                        resultSet.getDouble("starting_price"),
-                        resultSet.getString("seller_username")
-                );
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+            ps.setInt(1, itemId);
+            int affectedRows = ps.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI XÓA ITEM THEO ID: " + exception.getMessage());
+            return false;
         }
-        return null;
     }
 
-    public ArrayList<Item> getAllItems() {
-        return getAllItemsFromDatabase();
+    // ➕ ĐÃ THÊM: Hàm CẬP NHẬT sản phẩm theo ID cho Admin (Đã chỉnh theo cột image_data)
+    public boolean updateItem(int itemId, String name, String description, double startingPrice, String imageBase64) {
+        String query = "UPDATE items SET name = ?, description = ?, starting_price = ?, image_data = ? WHERE item_id = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+
+            ps.setString(1, name);
+            ps.setString(2, description);
+            ps.setDouble(3, startingPrice);
+            ps.setString(4, imageBase64 != null ? imageBase64 : "");
+            ps.setInt(5, itemId);
+
+            int affectedRows = ps.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException exception) {
+            System.err.println("❌ LỖI KHI CẬP NHẬT ITEM: " + exception.getMessage());
+            return false;
+        }
     }
 }
